@@ -1,6 +1,6 @@
 # Guide for Using `cljs-ajax` with `cljs.core.async`
 
-This guide picks up after the [most basic `cljs-ajax` example](../http-requests/guide-cljs-ajax). Now, we could use the callback nature of `cljs-ajax`'s handler, but then we'd start slipping into "callback hell". One of the many attractive features of Clojure(Script) is that we can escape this hell with `core.async`.
+This guide picks up after the [most basic `cljs-ajax` example](../http-async/guide-cljs-ajax). Now, we could use the callback nature of `cljs-ajax`'s handler, but then we'd start slipping into "callback hell". One of the many attractive features of Clojure(Script) is that we can escape this hell with `core.async`.
 
 ## Introduction
 
