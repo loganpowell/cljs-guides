@@ -138,4 +138,4 @@ or
 AJAX Error Status: 400
 ```
 
-If you got this far, great! Now, if you'd like to do some more advanced stuff, move on to learn [how to use `cljs-ajax` with `core.async`]("../http-async/guide-async-http.md").
+If you got this far, great! Now, if you'd like to do some more advanced stuff, move on to learn [how to use `cljs-ajax` with `core.async`](../http-async/guide-async-http.md).
