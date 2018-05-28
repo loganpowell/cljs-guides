@@ -140,3 +140,14 @@ Caused by: clojure.lang.ExceptionInfo: file is empty {:resource-name "guides/cor
 [2018-05-28 10:22:57 - INFO] filename violation for ns guides.http, got: http-requests/http.cljs expected: guides/http.cljs (or .cljc)
 [2018-05-28 10:38:12 - INFO] filename violation for ns guides.http, got: http-requests/http.cljs expected: guides/http.cljs (or .cljc)
 [2018-05-28 10:38:54 - INFO] filename violation for ns guides.http, got: http-requests/http.cljs expected: guides/http.cljs (or .cljc)
+[2018-05-28 11:36:15 - INFO] Found multiple IPs, might be using the wrong one. Please report all interfaces should the chosen one be incorrect.
+[2018-05-28 11:36:15 - INFO] Found IP:10.26.44.14 Interface:IVPN-TAP-Windows Adapter V9
+[2018-05-28 11:36:15 - INFO] Found IP:10.0.75.1 Interface:Hyper-V Virtual Ethernet Adapter #2
+[2018-05-28 11:36:15 - INFO] Found IP:172.20.210.1 Interface:Hyper-V Virtual Ethernet Adapter #3
+[2018-05-28 11:36:15 - INFO] Found IP:192.168.1.4 Interface:Marvell AVASTAR Wireless-AC Network Controller
+[2018-05-28 11:36:16 - INFO] XNIO version 3.3.8.Final
+[2018-05-28 11:36:16 - INFO] XNIO NIO Implementation Version 3.3.8.Final
+[2018-05-28 11:36:16 - INFO] filename violation for ns go.experiments, got: core-async/experiments.cljs expected: go/experiments.cljs (or .cljc)
+[2018-05-28 11:36:16 - INFO] filename violation for ns docs.parser, got: http-requests/doc-parser.cljs expected: docs/parser.cljs (or .cljc)
+[2018-05-28 11:36:16 - INFO] filename violation for ns guides.http, got: http-requests/http.cljs expected: guides/http.cljs (or .cljc)
+[2018-05-28 11:47:10 - INFO] filename violation for ns guides.http, got: http-requests/http.cljs expected: guides/http.cljs (or .cljc)
