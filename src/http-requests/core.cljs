@@ -1,4 +1,4 @@
-(ns guides.http
+(ns http.core
     (:require [ajax.core :refer [GET POST]])
     (:require fs))
 
