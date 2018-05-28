@@ -1,31 +1,29 @@
 (ns guides.http
     (:require [ajax.core :refer [GET POST]])
-    (:require [cljs.data.json :as json])
     (:require fs))
 
-(defn handler [response]
-  (let [store (atom)]
-    (swap! store assoc :response response)
-    (.log js/console (str response)))
-  @store)
+;; Basic working example:
 
-(handler "testing")
+(def cljs-async-docs "https://raw.githubusercontent.com/clojure/core.async/master/src/main/clojure/cljs/core/async.cljs")
 
-(defn errorHandler [{:keys [status status-text]}]
+(defn basic-handler
+  [response]
+  (.log js/console (str response)))
+
+(GET cljs-async-docs {:handler basic-handler})
+
+;; Bad endpoint example:
+
+(def bad-url "https://rercontent.com/badlink.cl")
+
+; Destructure the response object to get the :status and :status-text
+(defn basic-error-handler [{:keys [status status-text]}]
  (.log js/console
-  (str "something bad happened: " status " " status-text)))
+    (str "AJAX Error Status: " status " -> " status-text)))
 
-(def censusBaseUrl "https://api.census.gov/data.json")
+(GET bad-url
+  {:handler basic-handler
+   :error-handler basic-error-handler})
 
-(GET censusBaseUrl {:handler handler
-                      :error-handler error-handler
-                      :response-format :json
-                      :keywords? true})
-
-(defn discovery "Fetches the base URL from api.census.gov's data API"
-  [store]
-  (GET "https://api.census.gov/data.json"
-            ; create a callback to handle the response
-           {:handler (fn [phones] (swap! store assoc :phones phones))
-            :error-handler (fn [details] (.warn js/console (str "Failed to refresh phones from server: " details)))
-            :response-format :json, :keywords? true}))
+; => AJAX Error Status: 0 -> Request failed.
+; => AJAX Error Status: 400

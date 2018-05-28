@@ -2,20 +2,7 @@
   "name": "cljs-guides",
   "version": "0.0.1",
   "description": "\"some guides for `cljs` users coming from a JavaScript background\"",
-  "main": "index.js",
-  "scripts": {
-    "dev": "shadow-cljs watch lib",
-    "release": "shadow-cljs release lib",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "author": "Logan Powell",
-  "license": "MIT",
-  "dependencies": {
-    "dotenv": "^5.0.1",
-    "shadow-cljs": "^2.3.25",
-    "xmlhttprequest": "^1.8.0"
-  },
-  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/loganpowell/cljs-guides.git"
@@ -23,5 +10,19 @@
   "bugs": {
     "url": "https://github.com/loganpowell/cljs-guides/issues"
   },
-  "homepage": "https://github.com/loganpowell/cljs-guides#readme"
+  "homepage": "https://github.com/loganpowell/cljs-guides#readme",
+  "main": "./src/public/node/examples.js",
+  "scripts": {
+    "dev": "shadow-cljs watch lib",
+    "release": "shadow-cljs release lib",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^5.0.1",
+    "xmlhttprequest": "^1.8.0"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.3.29"
+  }
 }

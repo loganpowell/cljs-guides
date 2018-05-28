@@ -1,10 +1,10 @@
 # Guide for Using `cljs-ajax` with `cljs.core.async`
 
+This guide picks up after the [most basic `cljs-ajax` example]("../http-requests/guide-cljs-ajax"). Now, we could use the callback nature of `cljs-ajax`'s handler, but then we'd start slipping into "callback hell". One of the many attractive features of Clojure(Script) is that we can escape this hell with `core.async`.
+
 ## Introduction
 
-Upon Google'ing for a while, I learned that there are very few, scattered guides for using `cljs-ajax` (a Clojure(script) library for communicating with HTTP endpoints). There's its [README in Github](https://github.com/JulianBirch/cljs-ajax/blob/master/README.md) and a [blog post](https://yogthos.net/posts/2013-04-09-Introducing-cljs-ajax.html) from 2013 (release article), but - beyond that - very little, so I decided to give back to the community that's given so much to its members by adding another drop to the bucket.
-
-If you think finding docs/guides for using `cljs-ajax` are sparse, figuring out how to use it in coordination with `cljs.core.async` is a headache. There were a [couple](https://github.com/vvvvalvalval/reagent-phonecat-tutorial/wiki/Step-11:-Asynchrony-and-error-management-with-core.async) of [resources](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/), from which I've stolen liberally here, but I figured for this **match made in heaven** there should be more. So, I hope you gain something from this endeavor.
+Figuring out how to use `cljs-ajax` in coordination with `cljs.core.async` is a little bit of a scavenger hunt. There were a [couple](https://github.com/vvvvalvalval/reagent-phonecat-tutorial/wiki/Step-11:-Asynchrony-and-error-management-with-core.async) of [resources](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/), from which I've stolen liberally here, but I figured for this **match made in heaven** there should be more. So, I hope you gain something from this endeavor.
 
 ## Motivation
 

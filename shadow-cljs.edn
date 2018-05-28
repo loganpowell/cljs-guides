@@ -1,0 +1,12 @@
+{:source-paths ["src"]
+ :dependencies [[proto-repl "0.3.1"]
+                [org.clojure/core.async "0.4.474"]
+                [cljs-ajax "0.7.3"]]
+                ; [instaparse "1.4.9"]]
+ :nrepl {:port 3333}
+ :builds
+ {:lib {:target     :node-library
+        :output-dir "public/node"
+        :output-to "public/node/examples.js"
+        :compiler-options {:pretty-print true}
+        :exports {:guides guides.core/node}}}}
