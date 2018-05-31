@@ -1,5 +1,5 @@
 (ns core-async.core
-  (:require  [cljs.core.async :refer [>! <! chan put! take! close! timeout]]
+  (:require  [cljs.core.async :refer [>! <! chan put! take! close! timeout alts! alt!]]
              [cljs.core.async :refer-macros [go go-loop alt!]])
   (:use [clojure.repl :only (source)]))
 
@@ -8,10 +8,6 @@
 (.log js/console (go 5))
 
 (go (.log js/console (<! (go 5)))) ; => 5
-
-(let [c (chan)]
-  (go
-    (>! c 10)))
 
 (let [c (chan)]
   (go
@@ -45,30 +41,56 @@
 
 ;; Handy Go timeout function from [@naiquevin](https://gist.github.com/naiquevin/6b78186176e86c0a15e3)
 
-(source alt!)
+(def ch (chan))
 
-(let [ch (chan)]
+(defn render [q]
+  (apply str
+    (for [p (reverse q)]
+      (str "process: " p " "))))
+
+(go (while true (<! (timeout 250)) (>! ch 1)))
+(go (while true (<! (timeout 1000)) (>! ch 2)))
+(go (while true (<! (timeout 1500)) (>! ch 3)))
+
+(defn peekn
+  "Returns vector of (up to) n items from the end of vector v"
+  [v n]
+  (if (> (count v) n)
+    (subvec v (- (count v) n))
+    v))
+
+(go (loop [q []]
+      (.log js/console (render q))
+      (recur (-> (conj q (<! ch)) (peekn 4)))))
+
+(comment
+  process: 1
+  process: 2process: 1
+  process: 1process: 2process: 1
+  process: 1process: 1process: 2process: 1
+  process: 2process: 1process: 1process: 2
+  ... forever)
+
+; USING `alts!`
+
+(let [tmt (timeout 5000)
+      ch (chan)]
   (go (while true (<! (timeout 250)) (>! ch 1)))
   (go (while true (<! (timeout 1000)) (>! ch 2)))
   (go (while true (<! (timeout 1500)) (>! ch 3)))
-
-  (defn render [q]
-    (apply str
-      (for [p (reverse q)]
-        (str "process: " p " "))))
-
-  (defn peekn
-    "Returns vector of (up to) n items from the end of vector v"
-    [v n]
-    (if (> (count v) n)
-      (subvec v (- (count v) n)) ; subvec returns a vector of length: n
-      v))
-
-  (go
-    (loop [i 0 ret []]
-      (if (= i 10)
-        (.log js/console (render ret))
-        (recur (inc 1) (->
-                         (conj ret (<! c))
-                         (peekn 4)
-                         (.log js/console (render ret))))))))
+  (go-loop [q []]
+    (let [[value channel] (alts! [ch tmt])]
+      (cond
+        (= channel tmt) (.log js/console (str "done"))
+        :else
+        (do
+          (.log js/console (render q))
+          (recur (-> (conj q (<! ch)) (peekn 4))))))))
+(comment
+  process: 1
+  process: 2process: 1
+  process: 1process: 2process: 1
+  process: 1process: 1process: 2process: 1
+  process: 2process: 1process: 1process: 2
+  ...
+  done)
