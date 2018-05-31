@@ -22,7 +22,7 @@ There are a few differences between the features of `core.async` in Clojure and 
 ### Functions Covered:
 
 Function | Short Description | Syntax | Must be used in a `go` block?
---- | --- | :---: | :---: | ---
+--- | --- | :---: | :---: 
 [`chan`](https://clojuredocs.org/clojure.core.async/chan) | Channel: async coordination vehicle | async | true
 [`>!`](https://clojuredocs.org/clojure.core.async/>!) | "Put bang" -> Put to `chan` | sync | true
 [`<!`](https://clojuredocs.org/clojure.core.async/>!) | "Take bang" -> Take from a `chan` | sync | true
@@ -227,7 +227,7 @@ process: 1process: 2process: 1process: 1
 process: 1process: 1process: 2process: 1
 process: 2process: 1process: 1process: 2
 process: 1process: 2process: 1process: 1
-... forever
+... happily ever after
 ```
 
 While this is an impressive display of the power of `core.async` (Try running three concurrent processes in JavaScript? Ha!), it is also a call for you to be careful when setting your channels in motion.
@@ -277,4 +277,4 @@ This example steals from another [David Nolen presentation](http://go.cognitect.
 
 # `timeout`
 
-We used `timeout` here to close our channel. It's important to note that - as per the [documentation](https://clojuredocs.org/clojure.core.async/timeout) - while `timeout` does return a channel, that the channel is only there to signal you when the given number of milliseconds has elapsed and it signals that by closing itself. This is how you properly close a channel - from the inside of the `go` block wherein it's spawned.
+We used `timeout` here to close our channel. It's important to note that - as per the [documentation](https://clojuredocs.org/clojure.core.async/timeout) - while `timeout` does return a channel, that the channel is only there to signal you when the given number of milliseconds has elapsed and it signals that by closing itself. This is one method for properly terminating a looping channel by stopping takes from it by switching to a terminal channel via `alts!` within its spawning `go` block.
