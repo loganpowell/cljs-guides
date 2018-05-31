@@ -225,7 +225,7 @@ Let's see this in action in a slightly manipulated [example](http://swannodette.
 
 (go (loop [q []]
       (.log js/console out (render q))
-      (recur (-> (conj q (<! ch)) (peekn 10)))))
+      (recur (-> (conj q (<! ch)) (peekn 3)))))
 ```
 Which logs:
 
@@ -233,14 +233,18 @@ Which logs:
 process: 2
 process: 3 process: 2
 process: 2 process: 3 process: 2
-process: 1 process: 2 process: 3 process: 2
-process: 2 process: 1 process: 2 process: 3 process: 2
-process: 1 process: 2 process: 1 process: 2 process: 3 process: 2
-process: 1 process: 1 process: 2 process: 1 process: 2 process: 3
-process: 1 process: 1 process: 1 process: 2 process: 1 process: 2
-process: 1 process: 1 process: 1 process: 1 process: 2 process: 1
-process: 3 process: 1 process: 1 process: 1 process: 1 process: 2
-process: 1 process: 3 process: 1 process: 1 process: 1 process: 1
+process: 1 process: 2 process: 3
+process: 2 process: 1 process: 2
+process: 1 process: 2 process: 1
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 3 process: 1 process: 1
+process: 1 process: 3 process: 1
+process: 2 process: 1 process: 3
+process: 3 process: 2 process: 1
+process: 2 process: 3 process: 2
+process: 1 process: 2 process: 3
 ... happily ever after
 ```
 
@@ -266,26 +270,26 @@ After ensuring your `render` and `peekn` functions are loaded into the namespace
         :else
         (do
           (.log js/console (render q))
-          (recur (-> (conj q (<! ch)) (peekn 6))))))))
+          (recur (-> (conj q (<! ch)) (peekn 3))))))))
 ```
 Which logs:
 ```
 process: 2
 process: 3 process: 2
 process: 2 process: 3 process: 2
-process: 1 process: 2 process: 3 process: 2
-process: 2 process: 1 process: 2 process: 3 process: 2
-process: 1 process: 2 process: 1 process: 2 process: 3 process: 2
-process: 1 process: 1 process: 2 process: 1 process: 2 process: 3
-process: 1 process: 1 process: 1 process: 2 process: 1 process: 2
-process: 1 process: 1 process: 1 process: 1 process: 2 process: 1
-process: 3 process: 1 process: 1 process: 1 process: 1 process: 2
-process: 1 process: 3 process: 1 process: 1 process: 1 process: 1
-process: 2 process: 1 process: 3 process: 1 process: 1 process: 1
-process: 3 process: 2 process: 1 process: 3 process: 1 process: 1
-process: 2 process: 3 process: 2 process: 1 process: 3 process: 1
-process: 1 process: 2 process: 3 process: 2 process: 1 process: 3
-process: 2 process: 1 process: 2 process: 3 process: 2 process: 1
+process: 1 process: 2 process: 3
+process: 2 process: 1 process: 2
+process: 1 process: 2 process: 1
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 3 process: 1 process: 1
+process: 1 process: 3 process: 1
+process: 2 process: 1 process: 3
+process: 3 process: 2 process: 1
+process: 2 process: 3 process: 2
+process: 1 process: 2 process: 3
+process: 2 process: 1 process: 2
 done
 ```
 
@@ -339,7 +343,7 @@ Let's see this in action. After ensuring your `render` and `peekn` functions are
           :else
           (do
             (.log js/console (render q))
-            (recur (-> (conj q (<! port)) (peekn 6)))))))))
+            (recur (-> (conj q (<! port)) (peekn 3)))))))))
 
 (defn msg->chan [port msg]
   (put! port msg))
@@ -359,43 +363,101 @@ Then, before your five seconds are up, eval this:
 
 Which logs:
 ```
-process: 3
-process: 1 process: 3
-process: 2 process: 1 process: 3
-process: 1 process: 2 process: 1 process: 3
-process: 3 process: 1 process: 2 process: 1 process: 3
-process: 1 process: 3 process: 1 process: 2 process: 1 process: 3
-process: 2 process: 1 process: 3 process: 1 process: 2 process: 1
-process: 1 process: 2 process: 1 process: 3 process: 1 process: 2
-process: 1 process: 1 process: 2 process: 1 process: 3 process: 1
-process: 3 process: 1 process: 1 process: 2 process: 1 process: 3
-process: 2 process: 3 process: 1 process: 1 process: 2 process: 1
-process: 1 process: 2 process: 3 process: 1 process: 1 process: 2
-process: 1 process: 1 process: 2 process: 3 process: 1 process: 1
-process: 2 process: 1 process: 1 process: 2 process: 3 process: 1
-process: 1 process: 2 process: 1 process: 1 process: 2 process: 3
-process: OUTSIDE process: 1 process: 2 process: 1 process: 1 process: 2
-process: 3 process: OUTSIDE process: 1 process: 2 process: 1 process: 1
-process: 1 process: 3 process: OUTSIDE process: 1 process: 2 process: 1
-process: 2 process: 1 process: 3 process: OUTSIDE process: 1 process: 2
-process: 1 process: 2 process: 1 process: 3 process: OUTSIDE process: 1
-process: 1 process: 1 process: 2 process: 1 process: 3 process: OUTSIDE
-process: 3 process: 1 process: 1 process: 2 process: 1 process: 3
-process: 2 process: 3 process: 1 process: 1 process: 2 process: 1
-process: 1 process: 2 process: 3 process: 1 process: 1 process: 2
-process: 1 process: 1 process: 2 process: 3 process: 1 process: 1
-process: 2 process: 1 process: 1 process: 2 process: 3 process: 1
-process: 1 process: 2 process: 1 process: 1 process: 2 process: 3
-process: 3 process: 1 process: 2 process: 1 process: 1 process: 2
-process: 1 process: 3 process: 1 process: 2 process: 1 process: 1
-process: 2 process: 1 process: 3 process: 1 process: 2 process: 1
-process: 1 process: 2 process: 1 process: 3 process: 1 process: 2
-process: 1 process: 1 process: 2 process: 1 process: 3 process: 1
-process: 3 process: 1 process: 1 process: 2 process: 1 process: 3
-process: 2 process: 3 process: 1 process: 1 process: 2 process: 1
-process: 1 process: 2 process: 3 process: 1 process: 1 process: 2
+process: 2
+process: 2 process: 2
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 3 process: 1 process: 1
+process: 3 process: 3 process: 1
+process: 1 process: 3 process: 3
+process: 1 process: 1 process: 3
+process: 2 process: 1 process: 1
+process: 2 process: 2 process: 1
+process: 2 process: 2 process: 2
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 3 process: 1 process: 1
+process: 3 process: 3 process: 1
+process: 3 process: 3 process: 3
+process: 1 process: 3 process: 3
+process: 1 process: 1 process: 3
+process: 2 process: 1 process: 1
+process: 2 process: 2 process: 1
+process: 2 process: 2 process: 2
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 2 process: 1 process: 1
+process: 3 process: 2 process: 1
+process: 3 process: 3 process: 2
+process: 2 process: 3 process: 3
+process: 2 process: 2 process: 3
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: OUTSIDE process: 1 process: 1
+process: 1 process: OUTSIDE process: 1
+process: 1 process: 1 process: OUTSIDE
+process: 2 process: 1 process: 1
+process: 2 process: 2 process: 1
+process: 2 process: 2 process: 2
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 3 process: 1 process: 1
+process: 3 process: 3 process: 1
+process: 3 process: 3 process: 3
+process: 1 process: 3 process: 3
+process: 1 process: 1 process: 3
+process: 2 process: 1 process: 1
+process: 2 process: 2 process: 1
+process: 2 process: 2 process: 2
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 3 process: 1 process: 1
+process: 3 process: 3 process: 1
+process: 2 process: 3 process: 3
+process: 2 process: 2 process: 3
+process: 2 process: 2 process: 2
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 2 process: 1 process: 1
+process: 2 process: 2 process: 1
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 3 process: 1 process: 1
+process: 3 process: 3 process: 1
+process: 1 process: 3 process: 3
+process: 1 process: 1 process: 3
+process: 1 process: 1 process: 1
+process: 2 process: 1 process: 1
+process: 2 process: 2 process: 1
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 3 process: 1 process: 1
+process: 3 process: 3 process: 1
+process: 3 process: 3 process: 3
+process: 2 process: 3 process: 3
+process: 2 process: 2 process: 3
+process: 1 process: 2 process: 2
+process: 1 process: 1 process: 2
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
+process: 1 process: 1 process: 1
 done
 ```
+
+Notice how we got a much longer log this time, when we - asynchronously - added a message to the channel?
 
 
 ## Parking
