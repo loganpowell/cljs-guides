@@ -15,7 +15,7 @@ This guide was meant to help those just getting started with `core.async`, but w
 
 #### *There comes a time in all good programs when components or subsystems must stop communicating directly to each other.*
 
-### *Conveyance must become first class*
+### *Conveyance must become first class*.
 -- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md)
 
 ---
@@ -40,7 +40,7 @@ There are a few differences between the features of `core.async` in Clojure and 
 
 Very roughly speaking - anything that has "blocking" semantics in `clojure.core.async` (e.g., anything with two `!!`s) will not be  available in `cljs.core.async`.
 
-## Macros Covered:
+## Macros Covered Herein:
 - [`go`](https://clojuredocs.org/clojure.core.async/go): Provides an first-class process (and lexical "block") where internal asynchronous functions can be written in a synchronous fashion.
 
 ## Functions Covered:
@@ -61,7 +61,7 @@ You'll need to add this to the namespace of your file:
              [cljs.core.async :refer-macros [go]])
   (:use [clojure.repl :only (source)]))
 ```
-> The `source` function is a handy sister to the natively available `doc` function, which allows you to inspect the definition of a given macro or function in a library.
+The `source` function is a handy sister to the natively available `doc` function, which allows you to inspect the definition of a given macro or function in a library.
 
 Also, you'll need to add the [current version](https://github.com/clojure/core.async#releases-and-dependency-information) of `core.async` to your project's `:dependencies`:
 
@@ -138,7 +138,7 @@ And now we get our value out:
 ```
 
 ### Takeaway:
-**You can only do a "parking" take (`<!`) from a channel within a `go` block**. In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is actually a channel (`chan`).
+**You can only do a "parking" take (`<!`) from a channel *within* a `go` block**. In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is actually a channel (`chan`).
 
 
 
@@ -233,9 +233,9 @@ This is the primary takeaway from this example. I.e., that  **writes (`>!`/`put!
 If you're passing a `chan` within or between `go` blocks in the same or different scopes, any unbalanced put to or take from that `chan` will be "suspended". In this case, it's accidentally forewarning of our code to use the combination of `let`...`go` ;)
 
 ---
-## Up Next
+<!-- ## Up Next
 
-If this wetted your appetite to learn a bit more about `core.async`, check out [the next lesson](./core-async.md)
+If this wetted your appetite to learn a bit more about `core.async`, check out [the next lesson](./core-async.md) -->
 
 ## Additional Resources
 
