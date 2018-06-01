@@ -11,10 +11,14 @@ license: 'public-domain'
 
 This guide was meant to help those just getting started with `core.async`, but why would we want to learn something new for asynchronous communicating between our functions/systems when we already have a way to do that (i.e., callbacks)?
 
+---
+
 **Conveyance must become first class**. |
 :---:|
 There comes a time in all good programs when components or subsystems must stop communicating directly to each other. |
 --- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md) |
+
+---
 
 `core.asyc` outperforms [other async vehicles](http://swannodette.github.io/2013/08/23/make-no-promises) in a number of ways, which should become apparent by running through some examples, but here are just a few:
 
@@ -73,9 +77,9 @@ Also, you'll need to add the [current version](https://github.com/clojure/core.a
 ```
 
 
+---
 # `go` Block Basics
 
----
 #### [Usage](https://clojure.github.io/core.async/#clojure.core.async/go):
 ###### `(go & body)`
 
@@ -144,10 +148,10 @@ This is *not* best practice. The takeaway is that **you can only do a "parking" 
 
 
 
+---
 # `chan` Basics
 
 > Check out this fun overview of channels from Eric Normand [on YouTube](https://www.youtube.com/watch?v=msv8Fvtd6YQ)
----
 #### [Usage](https://clojure.github.io/core.async/#clojure.core.async/chan):
 ###### `(chan)`
 ###### `(chan buf-or-n)`
@@ -237,7 +241,6 @@ If you're passing a `chan` within or between `go` blocks in the same or differen
 
 If this wetted your appetite to learn a bit more about `core.async`, check out [the next lesson](./core-async.md)
 
----
 ## Additional Resources
 
 If you haven't already, take a gander at the clojure.core.async ([API Reference](https://clojure.github.io/core.async/) or [docs](https://clojuredocs.org/clojure.core.async)), do so!
