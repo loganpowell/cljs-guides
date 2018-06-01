@@ -12,11 +12,11 @@ license: 'public-domain'
 This guide was meant to help those just getting started with `core.async`, but why would we want to learn something new for asynchronous communicating between our functions/systems when we already have a way to do that (i.e., callbacks)?
 
 ---
+### Conveyance must become first class
 
-**Conveyance must become first class**. |
-:---:|
-There comes a time in all good programs when components or subsystems must stop communicating directly to each other. |
---- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md) |
+There comes a time in all good programs when components or subsystems must stop communicating directly to each other.
+
+--- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md)
 
 ---
 
