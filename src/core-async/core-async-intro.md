@@ -1,10 +1,10 @@
----
+<!-- ---
 title: 'Getting Started with `cljs.core.async`'
 created: '6-01-2018'
 canonicalUrl: 'https://github.com/loganpowell/cljs-guides/blob/master/src/core-async/core-async-intro.md'
-tags: ['cljs', 'core-async', 'clojurescript', 'go', 'clojure']
+tags: ['cljs', 'core-async', 'clojurescript', 'go', 'chan']
 license: 'public-domain'
----
+--- -->
 
 
 # Getting Started with `cljs.core.async`
