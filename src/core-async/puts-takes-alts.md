@@ -11,6 +11,10 @@ license: 'public-domain'
 
 In this follow up to [the introduction of `core.async` basics](./ore-async-intro.md) we'll get a bit deeper into the rabbit hole and do some more interesting things to expose the inner workings of `core.async`. This is also, a part of [a series](./core-async-guides.md) on the subject.
 
+
+## Macros Covered:
+- [`go-loop`](https://clojuredocs.org/clojure.core.async/go-loop): Syntactic sugar for `(go (loop [] ...))`
+
 ### Functions Covered:
 
 Function | Short Description | Syntax | Must be used in a `go` block?
@@ -25,8 +29,9 @@ You'll need to add this to the namespace of your file:
 
 ```clj
 (ns core-async.core
-  (:require  [cljs.core.async :refer [>! <! chan put! take! close! timeout]]
-             [cljs.core.async :refer-macros [go go-loop alt!]]))
+  (:require  [cljs.core.async :refer [>! <! chan put! take! close! timeout alts! alt! buffer dropping-buffer sliding-buffer]]
+             [cljs.core.async :refer-macros [go go-loop alt!]])
+  (:use [clojure.repl :only (source)]))
 ```
 
 ## Gotchas of `chan`
@@ -375,17 +380,9 @@ On the Clojurians' Slack:
 
 ## Additional Resources
 
-If you haven't already, take a gander at the clojure.core.async ([API Reference](https://clojure.github.io/core.async/) or [docs](https://clojuredocs.org/clojure.core.async)), do so!
-
-Check out this [blog post](https://medium.com/@hlship/some-observations-about-clojure-core-async-dc0ad44b8e2f) from [Howard M. Lewis](https://twitter.com/hlship) (the core contributor of a fantastic [Clojure GraphQL Server](https://github.com/walmartlabs/lacinia/graphs/contributors)) covering what to think about when spinning up threads.
 
 I also stole (with a bit of tweaking for Node instead of browser use) from a great [blog post](http://rigsomelight.com/2013/07/18/clojurescript-core-async-todos.html) from [Bruce Hauman](https://twitter.com/bhauman) (the creator of the popular [figwheel](https://github.com/bhauman/lein-figwheel) lein plugin that made ClojureScript the first hot-code-reloading story to JavaScript).
 
-### Projects on Github with Substantial use of `core.async`
-
-- [NetRunner: Game](https://github.com/mtgred/netrunner/search?q=core.async&unscoped_q=core.async)
-- [Goya: Pixel Editor](https://github.com/jackschaedler/goya/search?q=core.async&unscoped_q=core.async)
-- [Wordsmith Markdown Editor](https://github.com/yuhama/wordsmith/blob/848976002c8a0830e7ee85a352530f610d112389/src/wordsmith/core.cljs)
 
 ### Other Great Links
 
@@ -394,7 +391,6 @@ I also stole (with a bit of tweaking for Node instead of browser use) from a gre
   - [github source for examples from the talk](https://github.com/cognitect/async-webinar)
 - [Other Examples from @Halgari](https://github.com/halgari/clojure-conj-2013-core.async-examples/blob/master/src/clojure_conj_talk/core.clj)
 - [David Nolen Webinar Examples](https://github.com/cognitect/async-webinar/blob/master/src/webinar/core.cljs)
-- []()
 
 
 

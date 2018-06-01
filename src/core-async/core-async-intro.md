@@ -1,10 +1,10 @@
-<!-- ---
+---
 title: 'Getting Started with `cljs.core.async`'
-created: '5-31-2018'
+created: '6-01-2018'
 canonicalUrl: 'https://github.com/loganpowell/cljs-guides/blob/master/src/core-async/core-async-intro.md'
 tags: ['cljs', 'core-async', 'clojurescript', 'go', 'clojure']
 license: 'public-domain'
---- -->
+---
 
 
 # Getting Started with `cljs.core.async`
@@ -46,7 +46,6 @@ Very roughly speaking - anything that has "blocking" semantics in `clojure.core.
 
 ## Macros Covered:
 - [`go`](https://clojuredocs.org/clojure.core.async/go): Provides an first-class process (and lexical "block") where internal asynchronous functions can be written in a synchronous fashion.
-- [`go-loop`](https://clojuredocs.org/clojure.core.async/go-loop): Syntactic sugar for `(go (loop [] ...))`
 
 ## Functions Covered:
 
@@ -63,7 +62,7 @@ You'll need to add this to the namespace of your file:
 ```clj
 (ns core-async.core
   (:require  [cljs.core.async :refer [>! <! chan]]
-             [cljs.core.async :refer-macros [go go-loop]])
+             [cljs.core.async :refer-macros [go]])
   (:use [clojure.repl :only (source)]))
 ```
 > The `source` function is a handy sister to the natively available `doc` function, which allows you to inspect the definition of a given macro or function in a library.
@@ -171,7 +170,7 @@ Let's introduce a *bona fide* channel into our code. To start, let's treat the `
   (go
     (.log js/console "We got here")
     (.log js/console (<! c)) ; take from the channel
-    (.log js/console "We'll never get here")))
+    (.log js/console "We made progress")))
 ```
 Logging out:
 
@@ -187,7 +186,7 @@ Let's expand on the example by communicating between two `go` blocks living in t
 ```clj
 (let [c (chan)]
   (go
-    (.log js/console "Got here")
+    (.log js/console "We got here")
     (.log js/console (<! c))
     (.log js/console "We made progress"))
   (go
@@ -197,7 +196,7 @@ Let's expand on the example by communicating between two `go` blocks living in t
 This time we should get something like this logged to our console:
 
 ```
-Got here
+We got here
 5
 We made progress
 ```
@@ -225,7 +224,9 @@ Order
 doesn't matter
 After
 ```
-What's happening is that the first `go` block's second console log isn't allowed to read until it's put operation `>!` is satisfied by the take operation in the second `go` block. This is the primary takeaway from this example. I.e., that  **writes (`>!`/`put!`) and reads (`<!`/`take!`) need to be balanced in order to facilitate the sequential flow of information within and/or between `go` blocks.**
+What's happening here? The first `go` block's second console log isn't allowed to read until it's put operation `>!` is satisfied by the take operation in the second `go` block.
+
+This is the primary takeaway from this example. I.e., that  **writes (`>!`/`put!`) and reads (`<!`/`take!`) need to be balanced in order to facilitate the sequential flow of information within and/or between `go` blocks.**
 
 "Parking" is a feature, which prevents our provisioned processes from running out of control forever after. We can determine we handle too many puts to a channel that has not pending takes with the various `buffer` functions, which we'll cover in a [later guide](./core-async-index.md).
 
@@ -241,11 +242,8 @@ If this wetted your appetite to learn a bit more about `core.async`, check out [
 
 ## Additional Resources
 
-If you haven't already, take a gander at the clojure.core.async ([API Reference](https://clojure.github.io/core.async/) or [docs](https://clojuredocs.org/clojure.core.async)), do so!
-
-Check out this [blog post](https://medium.com/@hlship/some-observations-about-clojure-core-async-dc0ad44b8e2f) from [Howard M. Lewis](https://twitter.com/hlship) (the core contributor of a fantastic [Clojure GraphQL Server](https://github.com/walmartlabs/lacinia/graphs/contributors)) covering what to think about when spinning up threads.
-
-I also stole (with a bit of tweaking for Node instead of browser use) from a great [blog post](http://rigsomelight.com/2013/07/18/clojurescript-core-async-todos.html) from [Bruce Hauman](https://twitter.com/bhauman) (the creator of the popular [figwheel](https://github.com/bhauman/lein-figwheel) lein plugin that made ClojureScript the first hot-code-reloading story to JavaScript).
+- If you haven't already, take a gander at the clojure.core.async ([API Reference](https://clojure.github.io/core.async/) or [docs](https://clojuredocs.org/clojure.core.async)), do so!
+- Check out this [blog post](https://medium.com/@hlship/some-observations-about-clojure-core-async-dc0ad44b8e2f) from [Howard M. Lewis](https://twitter.com/hlship) (the core contributor of a fantastic [Clojure GraphQL Server](https://github.com/walmartlabs/lacinia/graphs/contributors)) covering what to think about when spinning up threads.
 
 ### Examples of `core.async`
 
