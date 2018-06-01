@@ -48,8 +48,8 @@ Very roughly speaking - anything that has "blocking" semantics in `clojure.core.
 Function | Short Description | Syntax | Must be used in a `go` block?
 --- | --- | :---: | :---:
 [`chan`](https://clojuredocs.org/clojure.core.async/chan) | Channel: async coordination vehicle | async | true
-[`>!`](https://clojuredocs.org/clojure.core.async/>!) | "Put bang" -> Put to `chan` | sync | true
-[`<!`](https://clojuredocs.org/clojure.core.async/>!) | "Take bang" -> Take from a `chan` | sync | true
+[`>!`](https://clojuredocs.org/clojure.core.async/>!) | "Parking" put -> Put to `chan` | sync | true
+[`<!`](https://clojuredocs.org/clojure.core.async/>!) | "Parking" take -> Take from a `chan` | sync | true
 
 ## Dependencies
 
