@@ -16,7 +16,7 @@ This guide was meant to help those just getting started with `core.async`, but w
 
 There comes a time in all good programs when components or subsystems must stop communicating directly to each other.
 
---- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md)
+-- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md)
 
 ---
 
@@ -31,8 +31,6 @@ This third point really was the clincher for me. I was learning the - genuinely 
 <p align="center">
   <img src="https://imgs.xkcd.com/comics/the_general_problem.png" alt="The General Problem"/>
 </p>
-
-:D
 
 ## Introduction
 
@@ -93,7 +91,7 @@ Also, you'll need to add the [current version](https://github.com/clojure/core.a
 
 `go` blocks provide an environment where we can escape callback hell. I like to think of them as pulling us into a new little programming world where we can write our async code in it's logical order. As [Stuart Halloway](https://twitter.com/stuarthalloway?ref_src=twsrc%5Egoogle%7Ctwcamp%5Eserp%7Ctwgr%5Eauthor) explains in his [great talk](https://www.infoq.com/presentations/core-async) about `core.async` (paraphrasing):
 
-> `go` is a first class process abstraction (can be passed as a value to other processes) that will either use real threads (if available) or use "magic-callback-hell-behind-the-scenes-threads" giving users who don't have real threads to work with (i.e., ClojureScript/JavaScript users) the ability to write code as if they did. `go` uses a state-machine with "parking" to enable this.
+`go` is a first class process abstraction (can be passed as a value to other processes) that will either use real threads (if available) or use "magic-callback-hell-behind-the-scenes-threads" giving users who don't have real threads to work with (i.e., ClojureScript/JavaScript users) the ability to write code as if they did. `go` uses a state-machine with "parking" to enable this.
 
 We will touch on what "parking" means [in another post](./puts-takes-alts.md). For now, let's look at some code!
 
