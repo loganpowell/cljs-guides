@@ -15,6 +15,7 @@ Function | Short Description | Syntax | Must be used in a `go` block?
 [`<!`](https://clojuredocs.org/clojure.core.async/>!) | "Take bang" -> Take from a `chan` | sync | true
 
 
+
 ## 2) [`cljs.core.async` `alts!`, `put!`, `take!` and "parking"](./puts-takes-alts.md)
 
 ### Functions Covered:
@@ -24,7 +25,3 @@ Function | Short Description | Syntax | Must be used in a `go` block?
 [`alts!`](https://clojuredocs.org/clojure.core.async/alts!) | `chan` flow control | sync | true
 [`put!`](https://clojuredocs.org/clojure.core.async/put!) | "Put bang" -> Put to `chan` | async | false
 [`take!`](https://clojuredocs.org/clojure.core.async/take!)| "Take bang" -> Take from a `chan` | async | false
-
-## 1) [Getting Started]()
-
-Topics covered:

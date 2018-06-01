@@ -12,10 +12,10 @@ license: 'public-domain'
 This guide was meant to help those just getting started with `core.async`, but why would we want to learn something new for asynchronous communicating between our functions/systems when we already have a way to do that (i.e., callbacks)?
 
 ---
-### Conveyance must become first class
 
-There comes a time in all good programs when components or subsystems must stop communicating directly to each other.
+#### *There comes a time in all good programs when components or subsystems must stop communicating directly to each other.*
 
+### *Conveyance must become first class*
 -- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md)
 
 ---
@@ -26,11 +26,7 @@ There comes a time in all good programs when components or subsystems must stop 
 2) **Write asynchronous code as if it was synchronous** (using `go` blocks)
 3) **Treat channel i/o data as you would _any other_ collection in ClojureScript**. Enabling you to learn one set of operations (e.g., `map`, `filter`, etc... using [transducers](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/)) to rule them all!
 
-This third point really was the clincher for me. I was learning the - genuinely wonderful to work with - `ramda.js` library, when it dawned on me: _{ Haven't I done something like this before? }_ Like all great libraries, they come and go out of favor (remember JQuery?). The idea of learning one set of operations that could be used across all my code, both asynchronous and synchronous, in a way that would improve my skills with the *language* (not just the library) feels more efficient to me. That being said, I'm the type that always has this [xkcd](https://xkcd.com/974/) protest in the back of my head:
-
-<p align="center">
-  <img src="https://imgs.xkcd.com/comics/the_general_problem.png" alt="The General Problem"/>
-</p>
+This third point really was the clincher for me. The idea of learning one set of operations that could be used across all my code, both asynchronous and synchronous, in a way that would improve my skills with the *language* (not just the library) seems more efficient IMHO.
 
 ## Introduction
 
@@ -141,7 +137,8 @@ And now we get our value out:
 5
 ```
 
-This is *not* best practice. The takeaway is that **you can only do a "parking" take (`<!`) from a channel within a `go` block**. In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is actually a channel (`chan`).
+### Takeaway:
+**You can only do a "parking" take (`<!`) from a channel within a `go` block**. In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is actually a channel (`chan`).
 
 
 
