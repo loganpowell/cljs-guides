@@ -20,13 +20,17 @@ This guide was meant to help those just getting started with `core.async`, but w
 
 ---
 
-`core.asyc` outperforms [other async vehicles](http://swannodette.github.io/2013/08/23/make-no-promises) in a number of ways, which should become apparent by running through some examples, but here are just a few:
+`core.asyc` outperforms other async vehicles in a number of ways, but here are just a few:
 
-1) **Processes are first class**: you can use `core.async` channels and `go` blocks not only to pass data/values around, but pass also processes themselves! This feature enables you to take processes and de/compose them to do incredibly sophisticated things in just a few lines of code.
-2) **Write asynchronous code as if it was synchronous** (using `go` blocks)
-3) **Treat channel i/o data as you would _any other_ collection in ClojureScript**. Enabling you to learn one set of operations (e.g., `map`, `filter`, etc... using [transducers](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/)) to rule them all!
+- **Processes are first class**: you can use `core.async` channels and `go` blocks not only to pass data/values around, but pass also processes themselves! This feature enables you to take processes and de/compose them to do incredibly sophisticated things in just a few lines of code.
 
-This third point really was the clincher for me. The idea of learning one set of operations that could be used across all my code, both asynchronous and synchronous, in a way that would improve my skills with the *language* (not just the library) seems more efficient IMHO.
+![The omniconveyor](https://cdn-images-1.medium.com/max/900/1*vdhvl1KtmHTztQrTFauRGQ.gif)
+
+- **Write asynchronous code as if it was synchronous** (using `go` blocks)
+- They're [faster]((http://swannodette.github.io/2013/08/23/make-no-promises) than Promises.
+- **Treat channel i/o data as you would _any other_ collection in ClojureScript**. Enabling you to learn one set of operations (e.g., `map`, `filter`, etc... using [transducers](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/)) to rule them all!
+
+This last selling point was really the clincher for me. The idea of learning one set of operations that could be used across all my code, both asynchronous and synchronous, in a way that would improve my skills with the *language* (not just the library) seems more efficient IMHO.
 
 ## Introduction
 
@@ -124,7 +128,7 @@ So, what if we tried to value out with `<!`? Let's try eval'ing this:
 
 ...aaaand we get this:
 ```
-throw (new Error("<! used not in (go ...) block"));
+... throw (new Error("<! used not in (go ...) block")) ...
 ```
 
 Since we're trying to "take" (`<!`) the value from *outside* the `go` block, we get an error. It may seem a bit odd at first, but the quickest way to remedy this is to wrap our `<!` (taking operation) in a `go` block:
@@ -138,7 +142,9 @@ And now we get our value out:
 ```
 
 ### Takeaway:
-**You can only do a "parking" take (`<!`) from a channel *within* a `go` block**. In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is actually a channel (`chan`).
+**You can only do a "parking" operation (e.g., `<!` / `>!`) from a channel *within* a `go` block**.
+
+In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is a channel (`chan`).
 
 
 
@@ -146,6 +152,7 @@ And now we get our value out:
 # `chan` Basics
 
 > Check out this fun overview of channels from Eric Normand [on YouTube](https://www.youtube.com/watch?v=msv8Fvtd6YQ)
+
 #### [Usage](https://clojure.github.io/core.async/#clojure.core.async/chan):
 ###### `(chan)`
 ###### `(chan buf-or-n)`
@@ -158,7 +165,9 @@ And now we get our value out:
 - `ex-handler` must be a `fn` of one argument - if an exception occurs during transformation it will be called with the Throwable as an argument, and any non-nil return value will be placed in the channel.
 ---
 
-If `go` blocks create an environment where we can write async code as if it were sync code, how do we communicate or pass information between these environments? Are we limited to doing this stuff only inside the `go` blocks? The answer is "no". **The way we pass work done inside one `go` block to another `go` block is with channels (`chan`).**
+If `go` blocks create an environment where we can write async code as if it were sync code, how do we communicate or pass information between these environments? Are we limited to doing this stuff only inside the `go` blocks? The answer is "no".
+
+**The way we pass work done inside one `go` block to another `go` block is with channels (`chan`).**
 
 Let's introduce a *bona fide* channel into our code. To start, let's treat the `chan` as a simple internal means of conveying something:
 
@@ -175,7 +184,9 @@ Logging out:
 We got here
 ```
 
-Ok... what just happened? Why didn't we get the second console log? Well, this is the first lesson we need to learn about channels. We tried to take (`<!`) from an empty `chan`. What happened? We closed the `go` block before we put anything on that could be taken (`(go ...)<-closing paren closes the go block`) and thus abandoned the thread we provisioned. **Until a put is offset by a take (or vice versa) within the channel the operation will be suspended (will "wait") until it's satisfied by its counterpart or garbage collected.**
+Ok... what just happened? Why didn't we get the second console log? Well, this is the first lesson we need to learn about channels. We tried to take (`<!`) from an empty `chan`. What happened? We closed the `go` block before we put anything on that could be taken (`(go ...)<-closing paren closes the go block`) and thus abandoned the thread we provisioned.
+
+**Until a put is offset by a take (or vice versa) within the channel the operation will be suspended (will "wait") until it's satisfied by its counterpart or garbage collected.**
 
 Let's expand on the example by communicating between two `go` blocks living in the scope:
 
@@ -198,9 +209,9 @@ We got here
 We made progress
 ```
 
-The second console log was made possible by the following `go` blocks putting operation `>!`, which "woke up" the first - suspended at lexical time - by putting a value into the shared channel. This is the beginnings of inter `go` block communication. The potential of which is vastly more systemic in scope.
+The second console log was made possible by the following `go` blocks putting operation `>!`, which "woke up" the first by putting a value into the shared channel.  This is the beginnings of inter `go` block communication. The potential of which is *systemic*.
 
-One more example just for good measure:
+One more example to drive it home:
 
 ```clj
 (let [c (chan)]
@@ -213,6 +224,7 @@ One more example just for good measure:
     (.log js/console (<! c)) ; take the date out
     (.log js/console "doesn't matter")))
 ```
+
 Which logs:
 ```
 Before
@@ -221,9 +233,12 @@ Order
 doesn't matter
 After
 ```
+
 What's happening here? The first `go` block's second console log isn't allowed to read until it's put operation `>!` is satisfied by the take operation in the second `go` block.
 
-This is the primary takeaway from this example. I.e., that  **writes (`>!`/`put!`) and reads (`<!`/`take!`) need to be balanced in order to facilitate the sequential flow of information within and/or between `go` blocks.**
+This is the primary takeaway from this example:
+
+**Writes (`>!`/`put!`) and reads (`<!`/`take!`) need to be balanced in order to facilitate the sequential flow of information within and/or between `go` blocks.**
 
 "Parking" is a feature, which prevents our provisioned processes from running out of control forever after. We can determine we handle too many puts to a channel that has not pending takes with the various `buffer` functions, which we'll cover in a [later guide](./core-async-index.md).
 
