@@ -9,8 +9,9 @@ license: 'public-domain'
 
 # `cljs.core.async` `alts!`, `put!`, `take!` and "parking"
 
-In this follow up to [the introduction of `core.async` basics](./ore-async-intro.md) we'll get a bit deeper into the rabbit hole and do some more interesting things to expose the inner workings of `core.async`. This is also, a part of [a series](./core-async-guides.md) on the subject.
+In this follow up to [the introduction of `core.async` basics](./core-async-intro.md) we'll get a bit deeper into the rabbit hole and do some more interesting things to expose the inner workings of `core.async`. This is also, a part of [a series](./core-async-guides.md) on the subject.
 
+These example steal from another [David Nolen presentation](http://go.cognitect.com/core_async_webinar_recording) on the topic.
 
 ## Macros Covered:
 - [`go-loop`](https://clojuredocs.org/clojure.core.async/go-loop): Syntactic sugar for `(go (loop [] ...))`
@@ -20,6 +21,7 @@ In this follow up to [the introduction of `core.async` basics](./ore-async-intro
 Function | Short Description | Syntax | Must be used in a `go` block?
 --- | --- | :---: | :---:
 [`alts!`](https://clojuredocs.org/clojure.core.async/alts!) | `chan` flow control | sync | true
+[`timout`](https://clojuredocs.org/clojure.core.async/timeout)| Return a channel that closes after set milliseconds | async | false
 [`put!`](https://clojuredocs.org/clojure.core.async/put!) | "Put bang" -> Put to `chan` | async | false
 [`take!`](https://clojuredocs.org/clojure.core.async/take!)| "Take bang" -> Take from a `chan` | async | false
 
@@ -36,7 +38,7 @@ You'll need to add this to the namespace of your file:
 
 ## Gotchas of `chan`
 
-Now that we have a basic grasp of `chan` (the "queue", which can serve as a vehicle for conveying information between processes in `core.async`), it's important to note that you can't just kill a `chan` by closing its spawning `go` block. Critically, any ongoing putting or taking operations to/from the `chan` remain locked/waiting in the thread provisioned for the `chan`.
+Now that we have a [basic grasp of `chan`](./core-async-intro.md) (the "queue", which can serve as a vehicle for conveying information between processes in `core.async`), it's important to note that you can't just kill a `chan` by closing its enclosing `go` block. Since channels spun into (virtual) threads, any ongoing putting or taking operations to/from the `chan` remain waiting ("parked") in the thread provisioned for the `chan` until garbage collected.
 
 Let's see this in action in a slightly manipulated [example](http://swannodette.github.io/2013/07/12/communicating-sequential-processes) provided by David Nolen:
 
@@ -45,61 +47,55 @@ Let's see this in action in a slightly manipulated [example](http://swannodette.
 ```clj
 (def ch (chan))
 
-(defn render [q]
-  (apply str
-    (for [p (reverse q)]
-      (str "process: " p))))
-
 (go (while true (<! (timeout 250)) (>! ch 1)))
 (go (while true (<! (timeout 500)) (>! ch 2)))
 (go (while true (<! (timeout 750)) (>! ch 3)))
 
-(defn peekn
-  "Returns vector of (up to) n items from the end of vector v"
-  [v n]
-  (if (> (count v) n)
-    (subvec v (- (count v) n))
-    v))
-
-(doc subvec)
-
-(go (loop [q []]
-      (.log js/console out (render q))
-      (recur (-> (conj q (<! ch)) (peekn 3)))))
+(go-loop []
+  (recur (.log js/console (str "process: " (<! ch)))))
 ```
-Which logs:
+Which logs the following. Note the breaks between each log here represent a single occurance of `recur`, which will be of interest to us in a moment
 
-```
-process: 2
-process: 3 process: 2
-process: 2 process: 3 process: 2
-process: 1 process: 2 process: 3
-process: 2 process: 1 process: 2
-process: 1 process: 2 process: 1
-process: 1 process: 1 process: 2
-process: 1 process: 1 process: 1
-process: 1 process: 1 process: 1
-process: 3 process: 1 process: 1
-process: 1 process: 3 process: 1
-process: 2 process: 1 process: 3
-process: 3 process: 2 process: 1
-process: 2 process: 3 process: 2
-process: 1 process: 2 process: 3
-... happily ever after
-```
+- `process: 2`
+- `process: 3`
+- `process: 2`
+- `process: 1`
+- `process: 2`
+- `process: 1`
+- `process: 1`
+- `process: 1`
+`... happily ever after`
 
 While this is an impressive display of the power of `core.async` (Try running three concurrent processes in JavaScript in three lines of code? Ha!), it is also a call for you to be careful when setting your channels in motion.
 
-These three `(go...)` blocks pushing values into a channel can be thought of as "little programs", which spin up their own little (real or virtual) threads that can park/wait.
+# Control Flow with `timeout` and `alts!`
 
+So, what if we don't want a never ending process from our `chan`? One way of dealing with this is to use the `core.async` [`alts!`](https://clojuredocs.org/clojure.core.async/alts!) as control mechanisms.
 
-# Control Flow with `alts!`
+---
+# `alts!` Basics
 
-So, what if we don't want a never ending process from our `chan`? One way of dealing with this is to use the `core.async` [`alts!`](https://clojuredocs.org/clojure.core.async/alts!) as a control structure:
+#### [Usage](https://clojure.github.io/core.async/#clojure.core.async/alts!):
+###### `(alts! ports & {:as opts})`
 
-After ensuring your `render` and `peekn` functions are loaded into the namespace by eval'ing them, eval this:
+#### Elaboration:
+- Completes at most one of several channel operations.
+- Must be called inside a `(go ...)` block.
+- `ports` is a vector of channel endpoints, which can be either a channel to take from or a vector of `[channel-to-put-to val-to-put]`, in any combination.
+- Takes will be made as if by `<!`, and puts will be made as if by `>!`. Unless the `:priority` option is `true`, if more than one port operation is ready a non-deterministic choice will be made. If no operation is ready and a `:default` value is supplied, `[default-val :default]` will be returned, otherwise `alts!` will park until the first operation to become ready completes.
+- Returns `[val port]` of the completed operation, where `val` is the value taken for takes, and a boolean (`true` unless already closed, as per `put!`) for puts.
 
+##### `opts` are passed as `:key val ...` Supported options:
 
+- `:default val` - the value to use if none of the operations are immediately ready
+- `:priority true` - (default `nil`) when `true`, the operations will be tried in order.
+
+##### Note: there is no guarantee that the `port` or `val` expressions will be used, nor in what order should they be, so you should not depend on them for side effects.
+---
+
+Enough talk! Let's see some code!
+
+First, eval this:
 ```clj
 (defn timeout-chan [port]
   (let [tmt (timeout 5000)]
@@ -107,7 +103,7 @@ After ensuring your `render` and `peekn` functions are loaded into the namespace
     (go (while true (<! (timeout 500)) (>! port 2)))
     (go (while true (<! (timeout 750)) (>! port 3)))
     (go-loop [q []]
-      (let [[val ch] (alts! [port tmt])]
+      (let [[val ch] (alts! [port tmt])] ;; <-- `go-loop` flow control
         (cond
           (= ch tmt) (.log js/console (str "done"))
           :else
@@ -124,85 +120,91 @@ Then eval this:
 ```
 
 Which logs:
-```
-process: 2
-process: 2 process: 2
-process: 1 process: 2 process: 2
-process: 1 process: 1 process: 2
-process: 1 process: 1 process: 1
-process: 3 process: 1 process: 1
-process: 3 process: 3 process: 1
+- `process: 2`
+- `process: 3`
+- `process: 2`
+- `process: 1`
+- `process: 2`
+- `process: 1`
+- `process: 1`
+- `process: 1`
+- `process: 1`
+- `process: 3 done`
 
-process: 1 process: 3 process: 3
-process: 1 process: 1 process: 3
-process: 1 process: 1 process: 1
-
-process: 2 process: 1 process: 1
-process: 1 process: 2 process: 1
-process: 2 process: 1 process: 2
-process: 2 process: 2 process: 1
-process: 1 process: 2 process: 2
-process: 1 process: 1 process: 2
-
-process: 3 process: 1 process: 1
-process: 3 process: 3 process: 1
-process: 3 process: 3 process: 3
-process: 1 process: 3 process: 3
-process: 1 process: 1 process: 3
-process: 1 process: 1 process: 1
-
-process: 2 process: 1 process: 1
-process: 2 process: 2 process: 1
-process: 2 process: 2 process: 2
-process: 1 process: 2 process: 2
-process: 1 process: 1 process: 2
-process: 1 process: 1 process: 1
-
-process: 1 process: 1 process: 1
-process: 1 process: 1 process: 1
-process: 1 process: 1 process: 1
-
-process: 3 process: 1 process: 1
-process: 3 process: 3 process: 1
-process: 3 process: 3 process: 3
-process: 3 process: 3 process: 3
-process: 2 process: 3 process: 3
-process: 2 process: 2 process: 3
-process: 1 process: 2 process: 2
-process: 1 process: 1 process: 2
-process: 1 process: 1 process: 1
-
-process: 1 process: 1 process: 1
-process: 1 process: 1 process: 1
-process: 1 process: 1 process: 1
-
-done
-```
-
-This example steals from another [David Nolen presentation](http://go.cognitect.com/core_async_webinar_recording) on the topic. Essentially, `alts!` is a control structure for channels that will take a value from one of a number of channels depending on which is available at the time of choosing. In this case, the timeout block won't be available to take from until 5000 milliseconds have elapsed, at which point it will remain available for taking from whereas the other triple sequence of pusher `(go (while...))` loops are only available periodically. Thus, the `tmt` channel gets taken from when its time runs out, closing the `alt!` channel.
+Essentially, `alts!` is a control structure for channels that will take a value from one of a number of channels depending on which is available at the time of choosing. In this case, the timeout block won't be available to take from until 5000 milliseconds have elapsed, at which point it will remain available for taking from whereas the other triple sequence of pusher `(go (while...))` loops are only available periodically. Thus, the `tmt` channel gets taken from when its time runs out, closing the `alt!` channel.
 
 `alts!` returns one of the "ports" (channels) passed to it as args, depending on the toggling behavior of the provided threads themselves.
 
-## `alt!` vs `alts!`
+### Digging Deeper into What is Happening in our `test-chan`
 
-![alt!](https://res.infoq.com/presentations/core-async/en/slides/sl26.jpg)
-> source: [infoQ](https://www.youtube.com/watch?v=VrmfuuHW_6w)
+Those three `(go...)` blocks pushing values into a channel can be thought of as "little programs", which spin up their own little (virtual in JavaScript) threads (channels) that can park/wait for puts and takes to facilitate asynchronous data flow. As such, they will continue to push values into the shared `chan` (`test-chan`) until its buffer is full. The `test-chan` will park until more takes enable it to unload its buffer.
+
+Let's illustrate what this means for our channel by re-evaluating the same function without refreshing our REPL:
+
+```clj
+(timeout-chan test-chan)
+```
+
+Now, note the additional processes that get logged out - and in what fashion - here:
+
+- `process: 1`
+- `process: 2 process: 1`
+- `process: 3 process: 1`
+- `process: 2 process: 1`
+- `process: 1`
+- `process: 3 process: 2 process: 1`
+- `process: 1`
+- `process: 2 process: 1`
+- `process: 3 process: 1`
+- `process: 2 process: 1`
+- `process: 1`
+- `process: 3 done`
+
+Let's compare these two previous logs side-by-side:
+
+First Log | Second Log
+--- | ---
+ ` ` | `process: 1`
+`process: 2` | `process: 2 process: 1`
+`process: 3` | `process: 3 process: 1`
+`process: 2` | `process: 2 process: 1`
+`process: 1` | `process: 1`
+`process: 2` | `process: 3 process: 2 process: 1`
+`process: 1` | `process: 1`
+`process: 1` | `process: 2 process: 1`
+`process: 1` | `process: 3 process: 1`
+`process: 1` | `process: 2 process: 1`
+` ` | `process: 1`
+`process: 3 done` | `process: 3 done`
+
+We'll cover buffers in a moment, but know that - if you don't provide a buffer explicitly, `core.async` will create an unbuffered channel where a put will park until concurrent take is available. You can see the difference between the two logs above - while the exact log symmetry is not critical here - as a manifestation of what's going on inside the `test-chan`. When we switched the `go-loop` to the `timeout` channel (with `alts!`) in our first eval, we left the values being pushed by the previous `(go...)` blocks in there. The `test-chan` gets a double dose next eval because it consumes - simultaneously - the second eval's parked values and the first evals - post `alts!` - parked values.
+
+
+### Side-Note: `alt!` vs `alts!`
 
 There are two flavors of `alt*` in `core.async`, who's difference is explained pretty succinctly by [Michal Marczyk](https://stackoverflow.com/a/22085702):
 
 - `alts!` is a **function** that accepts a vector of channels to take from and/or channels with values to be put on them (in the form of doubleton vectors: [c v]). The vector may be dynamically constructed; the code calling `alts`! may not know how many channels it'll be choosing among (and indeed that number need not be constant across invocations).
 
-- `alt!` is a convenience **macro** which basically acts as a cross between `cond` and `alts!`. Here the number of "ports" (channels or channel+value pairs) must be known statically, but in practice this is quite often the case and the `cond`-like syntax is very clear.
+![alt!](https://res.infoq.com/presentations/core-async/en/slides/sl26.jpg)
+> source: [infoQ](https://www.youtube.com/watch?v=VrmfuuHW_6w)
 
-> `alt!` expands to a somewhat elaborate expression using `alts!`; apart from the syntactic convenience, it offers no extra functionality.
+- [`alt!`](https://clojure.github.io/core.async/#clojure.core.async/alt!) is a convenience **macro** which basically acts as a cross between `cond` and `alts!`. Here the number of "ports" (channels or channel+value pairs) must be known *statically*, but in practice this is quite often the sufficient and the `cond`-like syntax is very clear. It is also intended to be used **outside of `(go ...)` blocks**.
 
+`alt!` expands to a somewhat elaborate expression using `alts!`; apart from the syntactic convenience, it offers no extra functionality.
 
+---
+# `timeout` Basics
 
-# `timeout`
+#### [Usage](https://clojure.github.io/core.async/#clojure.core.async/timeout):
+###### `(timeout msecs)`
+
+#### Elaboration:
+- Returns a channel that will close after `msecs`
+---
 
 We used `timeout` here to close our channel. It's important to note that - as per the [documentation](https://clojuredocs.org/clojure.core.async/timeout) - while `timeout` does return a channel, that the channel is only there to signal you when the given number of milliseconds has elapsed and it signals that by giving you a closed `chan`. This is one method for properly terminating a looping `go` block: Stop it taking from or putting to a shared `chan` by switching to a `timeout` channel via the `alts!` function.
-
-
+---
 
 # `put!` and `take!`
 

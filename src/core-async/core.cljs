@@ -14,7 +14,7 @@
 (source >!)
 (source <!)
 
-(go (.log js/console (<! (go 5)))) ; => 5
+(go (.log js/console (<! (go 5))))
 
 ; `chan` (channels)
 (source chan)
@@ -32,8 +32,6 @@
     (.log js/console "We made progress"))
   (go ; when this following go block runs, it allows the prior go to finish
     (>! c 5)))
-; => Got here
-; => We made progress
 
 (let [c (chan)]
   (go
@@ -44,42 +42,26 @@
     (.log js/console "Order")
     (.log js/console (<! c))
     (.log js/console "doesn't matter")))
-; => Before
-; => Order
-; => doesn't matter
-; => After
 
 ; `timeout`
 (source timeout)
 
-(def ch (chan))
+; Gotchas of `chan`:
 
-(defn render [q]
-  (apply str
-    (for [p (reverse q)]
-      (str "process: " p " "))))
+(def ch (chan))
 
 (go (while true (<! (timeout 250)) (>! ch 1)))
 (go (while true (<! (timeout 500)) (>! ch 2)))
 (go (while true (<! (timeout 750)) (>! ch 3)))
 
-(defn peekn
-  "Returns vector of (up to) n items from the end of vector v"
-  [v n]
-  (if (> (count v) n)
-    (subvec v (- (count v) n))
-    v))
+(go-loop []
+  (recur (.log js/console (str "process: " (<! ch)))))
 
-(go (loop [q []]
-      (.log js/console (render q))
-      (recur (-> (conj q (<! ch)) (peekn 3)))))
 
+; Control Flow with `alts!`
 ; USING `alts!`
 (source alts!)
 
-; `put!` and `take!` (asynchronous channel operations)
-(source put!)
-(source take!)
 
 (defn timeout-chan [port]
   (let [tmt (timeout 3000)]
@@ -91,9 +73,7 @@
         (cond
           (= ch tmt) (.log js/console (str "done"))
           :else
-          (do
-            (.log js/console (render q))
-            (recur (-> (conj q (<! port)) (peekn 1)))))))))
+          (recur (.log js/console (str "process: " (<! port)))))))))
 
 (defn msg->chan [port msg]
   (put! port msg))
@@ -117,3 +97,51 @@
 (def drop-chan (chan (dropping-buffer 2)))
 (timeout-chan drop-chan)
 (msg->chan drop-chan "DROP-CHAN")
+
+
+; `put!` and `take!` (asynchronous channel operations)
+(source put!)
+(source take!)
+
+
+
+
+;; ======================= ARCHIVE
+
+
+(def ch (chan))
+
+(defn render [q]
+  (apply str
+    (for [p (reverse q)]
+      (str "process: " p " "))))
+
+(go (while true (<! (timeout 250)) (>! ch 1)))
+(go (while true (<! (timeout 500)) (>! ch 2)))
+(go (while true (<! (timeout 750)) (>! ch 3)))
+
+(defn peekn
+  "Returns vector of (up to) n items from the end of vector v"
+  [v n]
+  (if (> (count v) n)
+    (subvec v (- (count v) n))
+    v))
+
+(go-loop [p []]
+  (.log js/console (render q))
+  (recur (-> (conj q (<! port)) (peekn 1))))
+
+
+(defn timeout-chan [port]
+  (let [tmt (timeout 3000)]
+    (go (while true (<! (timeout 250)) (>! port 1)))
+    (go (while true (<! (timeout 500)) (>! port 2)))
+    (go (while true (<! (timeout 750)) (>! port 3)))
+    (go-loop [q []]
+      (let [[val ch] (alts! [port tmt])]
+        (cond
+          (= ch tmt) (.log js/console (str "done"))
+          :else
+          (do
+            (.log js/console (render q))
+            (recur (-> (conj q (<! port)) (peekn 1)))))))))

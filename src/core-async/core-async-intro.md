@@ -12,6 +12,8 @@ license: 'public-domain'
 This guide was meant to help those just getting started with `core.async`, but why would we want to learn something new for asynchronous communicating between our functions/systems when we already have a way to do that (i.e., callbacks)?
 
 ---
+![Comparing Channels to Direct Communication](http://endot.org/notes/2014-02-14-core-async-clojure/compare.png)
+
 
 #### *There comes a time in all good programs when components or subsystems must stop communicating directly to each other.*
 
@@ -23,9 +25,6 @@ This guide was meant to help those just getting started with `core.async`, but w
 `core.asyc` outperforms other async vehicles in a number of ways, but here are just a few:
 
 - **Processes are first class**: you can use `core.async` channels and `go` blocks not only to pass data/values around, but pass also processes themselves! This feature enables you to take processes and de/compose them to do incredibly sophisticated things in just a few lines of code.
-
-![The omniconveyor](https://cdn-images-1.medium.com/max/900/1*vdhvl1KtmHTztQrTFauRGQ.gif)
-
 - **Write asynchronous code as if it was synchronous** (using `go` blocks)
 - They're [faster]((http://swannodette.github.io/2013/08/23/make-no-promises) than Promises.
 - **Treat channel i/o data as you would _any other_ collection in ClojureScript**. Enabling you to learn one set of operations (e.g., `map`, `filter`, etc... using [transducers](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/)) to rule them all!
@@ -146,9 +145,8 @@ And now we get our value out:
 
 In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is a channel (`chan`).
 
-
-
 ---
+![The omniconveyor](https://cdn-images-1.medium.com/max/900/1*vdhvl1KtmHTztQrTFauRGQ.gif)
 # `chan` Basics
 
 > Check out this fun overview of channels from Eric Normand [on YouTube](https://www.youtube.com/watch?v=msv8Fvtd6YQ)
@@ -240,7 +238,7 @@ This is the primary takeaway from this example:
 
 **Writes (`>!`/`put!`) and reads (`<!`/`take!`) need to be balanced in order to facilitate the sequential flow of information within and/or between `go` blocks.**
 
-"Parking" is a feature, which prevents our provisioned processes from running out of control forever after. We can determine we handle too many puts to a channel that has not pending takes with the various `buffer` functions, which we'll cover in a [later guide](./core-async-index.md).
+"Parking" is a feature, which prevents our provisioned processes from running out of control forever after. We can determine how we handle too many puts to a channel that has not pending takes with the various `buffer` functions, which we'll cover in a [later guide](./core-async-index.md).
 
 
 ## Channels In Summary:
