@@ -48,3 +48,18 @@ Let's start with the simplest request. I'll be using a public API I'm familiar w
 
 ### References
 - [Using Transducers with Core.async in ClojureScript](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/)
+
+
+# TODO:
+
+- [`merge`](https://yobriefca.se/blog/2014/06/01/combining-and-controlling-channels-with-core-dot-asyncs-merge-and-mix/) `chan`s instead of manually using evals for example
+- actual API interaction example (we're trying to get away from callback hell right? The cake in the icing). Use the tripple `go` blocks to search three apis (let's use Census!)
+- more [visuals?](http://martintrojer.github.io/clojure/2013/07/07/coreasync-and-blocking-io)
+- wrapping [core.async over cljs-ajax](https://github.com/vvvvalvalval/reagent-phonecat-tutorial/wiki/Step-11:-Asynchrony-and-error-management-with-core.async)
+- wrapping [part 1](https://github.com/vvvvalvalval/reagent-phonecat-tutorial/wiki/Step-05:-talking-to-the-server)
+- more [wrapping from another author](http://dimagog.github.io/blog/clojure/clojurescript/2013/07/12/making-http-requests-from-clojurescript-with-core.async/)
+- using [tranducers with core.async](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/)
+- introducting [cljs-ajax](https://yogthos.net/posts/2013-04-09-Introducing-cljs-ajax.html)
+-
+- stuff for [cljs-ajax](https://lispcast.com/core-async-browser-motivation/)
+-

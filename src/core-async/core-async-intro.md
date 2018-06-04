@@ -14,7 +14,6 @@ This guide was meant to help those just getting started with `core.async`, but w
 ---
 ![Comparing Channels to Direct Communication](http://endot.org/notes/2014-02-14-core-async-clojure/compare.png)
 
-
 #### *There comes a time in all good programs when components or subsystems must stop communicating directly to each other.*
 
 ### *Conveyance must become first class*.
@@ -76,7 +75,7 @@ Also, you'll need to add the [current version](https://github.com/clojure/core.a
 ---
 # `go` Block Basics
 
-#### [Usage](https://clojure.github.io/core.async/#clojure.core.async/go):
+#### [Usage](https://clojuredocs.org/clojure.core.async/go):
 ###### `(go & body)`
 
 #### Elaboration:
@@ -91,7 +90,7 @@ Also, you'll need to add the [current version](https://github.com/clojure/core.a
 
 `go` is a first class process abstraction (can be passed as a value to other processes) that will either use real threads (if available) or use "magic-callback-hell-behind-the-scenes-threads" giving users who don't have real threads to work with (i.e., ClojureScript/JavaScript users) the ability to write code as if they did. `go` uses a state-machine with "parking" to enable this.
 
-We will touch on what "parking" means [in another post](./puts-takes-alts.md). For now, let's look at some code!
+We will touch on what "parking" means [in another post](./puts-takes-alts.md). For now, let's jump right in!
 
 ```clj
 (.log js/console (go 5))
@@ -146,12 +145,12 @@ And now we get our value out:
 In the case above, we created our channel in an unconventional way (by using a `go` instead of a channel directly), just to show that what is returned from a `go` is a channel (`chan`).
 
 ---
-![The omniconveyor](https://cdn-images-1.medium.com/max/900/1*vdhvl1KtmHTztQrTFauRGQ.gif)
+
 # `chan` Basics
 
 > Check out this fun overview of channels from Eric Normand [on YouTube](https://www.youtube.com/watch?v=msv8Fvtd6YQ)
 
-#### [Usage](https://clojure.github.io/core.async/#clojure.core.async/chan):
+#### [Usage](https://clojuredocs.org/clojure.core.async/chan):
 ###### `(chan)`
 ###### `(chan buf-or-n)`
 ###### `(chan buf-or-n xform)`

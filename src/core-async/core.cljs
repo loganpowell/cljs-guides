@@ -1,5 +1,5 @@
 (ns core-async.core
-  (:require  [cljs.core.async :refer [>! <! chan put! take! close! timeout alts! alt! buffer dropping-buffer sliding-buffer]]
+  (:require  [cljs.core.async :refer [>! <! chan put! take! timeout alts! buffer dropping-buffer sliding-buffer]]
              [cljs.core.async :refer-macros [go go-loop alt!]])
   (:use [clojure.repl :only (source)]))
 
@@ -68,19 +68,52 @@
     (go (while true (<! (timeout 250)) (>! port 1)))
     (go (while true (<! (timeout 500)) (>! port 2)))
     (go (while true (<! (timeout 750)) (>! port 3)))
-    (go-loop [q []]
+    (go-loop [_ []]
       (let [[val ch] (alts! [port tmt])]
         (cond
           (= ch tmt) (.log js/console (str "done"))
           :else
           (recur (.log js/console (str "process: " (<! port)))))))))
 
-(defn msg->chan [port msg]
-  (put! port msg))
 
 (def test-chan (chan))
+
 (timeout-chan test-chan)
-(msg->chan test-chan "TEST-CHAN")
+
+; `put!` and 'take!`
+
+(defn toggle-chan [process stopper]
+  (go (while true (<! (timeout 250)) (>! process 1)))
+  (go (while true (<! (timeout 500)) (>! process 2)))
+  (go (while true (<! (timeout 750)) (>! process 3)))
+  (go-loop [_ []] ; accumulator = placeholder, replaced with each `(recur (.log...`
+    (let [[val ch] (alts! [process stopper])]
+      (cond
+        (= ch stopper) (take! stopper #(.log js/console (str "take val: " %)))
+        :else
+        (recur (.log js/console (str "process: " (<! process))))))))
+
+(defn stopping-put-async [port val]
+  (put! port val #(.log js/console (str "put val: " %))))
+
+(defn stopping-put-park [port val]
+  (go (>! port val #(.log js/console (str "put val: " %)))))
+
+(def test-chan2 (chan))
+(def stopping-chan (chan 2))
+
+(source chan)
+(toggle-chan test-chan2 stopping-chan)
+
+(stopping-put-async stopping-chan "HALT")
+(stopping-put-park stopping-chan "STOP")
+
+
+
+
+
+
+; Buffers
 
 (def fixed-chan (chan 2))
 (timeout-chan fixed-chan)
