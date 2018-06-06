@@ -1,7 +1,82 @@
 (ns core-async.core
-  (:require  [cljs.core.async :refer [>! <! chan put! take! timeout alts! buffer dropping-buffer sliding-buffer]]
+  (:require  [cljs.core.async :refer [>! <! chan put! take! timeout close! alts! dropping-buffer sliding-buffer]]
              [cljs.core.async :refer-macros [go go-loop alt!]])
   (:use [clojure.repl :only (source)]))
+
+
+; ===============================
+; Orders Utils
+; ===============================
+
+(defn take-logger [val]
+  (prn (str "order taken: " val)))
+
+(defn put-logger [val]
+  (prn (str "order in: " val)))
+
+
+;  ______   __  __   ______  ______  ______   ______   __       ______   ______   ______
+; /\  == \ /\ \/\ \ /\  ___\/\  ___\/\  ___\ /\  == \ /\ \     /\  ___\ /\  ___\ /\  ___\
+; \ \  __< \ \ \_\ \\ \  __\\ \  __\\ \  __\ \ \  __< \ \ \____\ \  __\ \ \___  \\ \___  \
+;  \ \_____\\ \_____\\ \_\   \ \_\   \ \_____\\ \_\ \_\\ \_____\\ \_____\\/\_____\\/\_____\
+;   \/_____/ \/_____/ \/_/    \/_/    \/_____/ \/_/ /_/ \/_____/ \/_____/ \/_____/ \/_____/
+; courtesy: http://patorjk.com/software/taag/#p=display&h=1&v=0&f=Sub-Zero&t=Bufferless%20
+
+; ===============================
+; Orders with put! and take!
+; ===============================
+
+(def bufferless-orders-chan (chan))
+
+(defn put!-phone-order [channel order]
+  (put! channel order put-logger))
+
+(defn take!-phone-order [channel]
+  (take! channel take-logger))
+
+(put!-phone-order bufferless-orders-chan "Futo Maki")
+(put!-phone-order bufferless-orders-chan "Vegan Spider")
+; eval at will
+(take!-phone-order bufferless-orders-chan)
+
+; ===============================
+; Bot orders with looping put!
+; ===============================
+
+(defn bot-orders [channel order]
+  (loop []
+    (put! channel order)
+    (recur)))
+
+(bot-orders bufferless-orders-chan "Sushi!")
+;;=> Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
+
+
+; ===============================
+; Bot orders with backpressure
+; ===============================
+
+(defn bot-orders-bp [channel order]
+  (go
+    (loop []
+      (>! channel order)
+      (recur))))
+
+(bot-orders-bp bufferless-orders-chan "Sushi!")
+
+
+
+;  ______   __  __   ______  ______  ______   ______   ______   ______   _____
+; /\  == \ /\ \/\ \ /\  ___\/\  ___\/\  ___\ /\  == \ /\  == \ /\  ___\ /\  __-.
+; \ \  __< \ \ \_\ \\ \  __\\ \  __\\ \  __\ \ \  __< \ \  __< \ \  __\ \ \ \/\ \
+;  \ \_____\\ \_____\\ \_\   \ \_\   \ \_____\\ \_\ \_\\ \_\ \_\\ \_____\\ \____-
+;   \/_____/ \/_____/ \/_/    \/_/    \/_____/ \/_/ /_/ \/_/ /_/ \/_____/ \/____/
+                                                                                      
+
+
+
+
+
 
 ;; Source: David Nolen: https://youtu.be/AhxcGGeh5ho?t=11m49s
 
