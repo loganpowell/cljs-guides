@@ -1,5 +1,5 @@
 (ns core-async.core
-  (:require  [cljs.core.async :refer [>! <! chan put! take! timeout close! alts! dropping-buffer sliding-buffer]]
+  (:require  [cljs.core.async :refer [>! <! chan put! take! timeout close! alts! buffer dropping-buffer sliding-buffer]]
              [cljs.core.async :refer-macros [go go-loop alt!]])
   (:use [clojure.repl :only (source)]))
 
@@ -18,38 +18,80 @@
   (prn (str "order taken: " val)))
 
 (defn put-logger [val]
-  (prn (str "order in: " val)))
+  (prn (str "order put: " val)))
 
 
 ; ===============================
-; One-time orders with put! and take!
+; One-time Async Orders with `put!` and `take!`
 ; ===============================
 
-(def bufferless-orders-chan (chan))
+(def bufferless-chan (chan))
 
-(defn put!-phone-order [channel order]
+(source chan)
+(comment
+  (defn chan
+    "Creates a channel with an optional buffer, an optional transducer (like `(map f)`, `(filter p)` etc or a composition thereof), and an optional exception handler. If `buf-or-n` is a number, will create and use a fixed buffer of that size. If a transducer is supplied a buffer must be specified. `ex-handler` must be a fn of one argument - if an exception occurs during transformation it will be called with the thrown value as an argument, and any non-nil return value will be placed in the channel."
+    ([] (chan nil))
+    ([buf-or-n] (chan buf-or-n nil nil))
+    ([buf-or-n xform] (chan buf-or-n xform nil))
+    ([buf-or-n xform ex-handler]
+     (let [buf-or-n (if (= buf-or-n 0)
+                      nil
+                      buf-or-n)]
+       (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
+       (channels/chan (if (number? buf-or-n)
+                        (buffer buf-or-n)
+                        buf-or-n)
+                      xform
+                      ex-handler)))))
+
+; A channel can take from 0 to 3 arguments. To start, we'll use a simple `chan`, which creates a bufferless channel with no value transformations or exception handlers,  which forces the channel to queue up any pending  put or take operations instead of allowing put operations to discharge values into the channel. This kind of channel is best used for simple transactions. Let's use the analogy of a phone order.
+
+(defn put!-order [channel order]
   (put! channel order put-logger))
 
-(defn take!-phone-order [channel]
+(defn take!-order [channel]
   (take! channel take-logger))
 
-(put!-phone-order bufferless-orders-chan "Futo Maki")
-(put!-phone-order bufferless-orders-chan "Vegan Spider")
-; eval at will
-(take!-phone-order bufferless-orders-chan)
+(put!-order bufferless-chan "Futo Maki")
+;;=> true ; <- pending put
+(put!-order bufferless-chan "Vegan Spider")
+;;=> true ; <- pending put
+
+(take!-order bufferless-chan)
+; first eval =>
+; "order taken: Futo Maki"
+; "order put: true"
+; nil
+; second eval =>
+; "order taken: Vegan Spider"
+; "order put: true"
+; nil
+; third eval =>
+; nil ; <- pending take
+
+; eval put!-order again =>
+; "order put: true"
+; "order taken: Vegan Spider"
+; true
+
+; Notice the organization of the callback logs here. When a `put!` is matched with a pending `take!` (customer calls -> cook answers phone) , the `take!` callback is triggered first ("Thanks for calling Conveyor Sushi! May I take your order?") and `nil` is returned (confirming the order went through on `take!`).  Conversely - when a `take!` is met with a pending `put!`,  the `put!` callback is triggered first (the cook calls customer -> customer answers phone "Hello?") and `true` is returned (confirming the order went through on `put!`).
 
 ; ===============================
-; Bot orders
+; Robo Orders Overflow
 ; ===============================
+
+; What happens if we got one of those infamous robo-dialers, just spamming away at the phone line trying to sell timeshares? Well, with our simple `chan` our line would overflow.
+
 
 (defn bot-orders [channel order]
-  (dotimes [x 1100]
-    (put! channel order)))
+  (dotimes [x 1030]
+    (put!-order channel order)))
 
-(bot-orders bufferless-orders-chan "Sushi!")
+(bot-orders bufferless-chan "Sushi!")
 ;;=> Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
 
-
+; The creators of `core.async` thought it prudent (and it seems reasonable to me) for channels to be limited in how many pending put/take operations are allowed to be queued (max = 1024 pending operations). So, how might we deal with this kind of traffic? One way is with a buffered channel.
 
 ; 888~~\             88~\   88~\
 ; 888   | 888  888 _888__ _888__  e88~~8e  888-~\  d88~\
@@ -59,79 +101,193 @@
 ; 888__/  "88_-888  888    888    "88___/  888    \_88P
 
 ; ===============================
-; Bot orders with fixed buffer
+; Robo Orders with a Fixed Buffer
 ; ===============================
 
-(def orders-chan-fixed (chan 1000)) ; buffer = 1000 put values
+(source buffer)
+(comment
+  (defn buffer
+    "Returns a fixed buffer of size `n`. When full, puts will block/park."
+    [n]
+    (buffers/fixed-buffer n)))
 
-(defn bot-orders [channel order]
-  (dotimes [x 1100] ; 1100 puts - 1000 buffer = 100 pending puts
-    (put! channel order)))
+(def fixed-chan (chan 10)) ; buffer = 10 put values
 
-(bot-orders orders-chan-fixed "Sushi!")
+; eval at will
+(bot-orders fixed-chan "Sushi!")
+;; => "order put: true"
+;; => "order put: true"
+;; => "order put: true"
+; ...7 more
 
-(take!-phone-order orders-chan-fixed)
-;;=> works, but...
+; We can see that 10 of our puts were immediately accepted by the channel, while the rest will have to wait - as before - in the puts queue. Since we received 1030 order and had a buffer of 10 we were able to do this (1030 puts - 10 puts consumed by buffer = 1020 pending puts =< 1024 max.).
 
-(defn bot-orders [channel order]
-  (dotimes [x 2100] ; increase number of bot orders
-    (put! channel order)))
+; You can think of a fixed buffer like a voicemail service for our sushi orders. Or - if you prefer - an online ordering system that saves orders (in this case with a storage capacity of 10 orders). Instead of forcing the first 10 customers on one side of the line to wait until there's a match on the other side, a buffer allows the first 10 orders to be stored "inside" the channel. This would allow those 10 customers the benefit of being able to put in their order and get back to their lives and our sushi chefs could be less stressed out about taking every call as it comes in, possibly taking 10 orders at a time to free up the buffer for another load.
 
-; refresh (re-eval) our orders-chan-fixed
-; re-eval (bot-orders ...)
-;;=> Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
+; eval at will:
+(take!-order fixed-chan)
+; evals 1 - 1020 =>
+; "order taken: Sushi!"
+; "order put: true"
+; nil
+; ...
+
+; 1021st eval =>
+; "order taken: Sushi!"
+; nil
+
+
+; Notice how the last 10 `put!` callback don't fire. This is due to the fact that the last 10 takes are being pulled from the buffer instead of the pending put operations queue as was the case before. Let's look at the source for `put!` and `take!` to expore the inner workings a bit more.
+
+(source take!)
+(comment
+ (defn take!
+   "Asynchronously takes a `val` from `port`, passing to `fn1`. Will pass `nil` if closed. If `on-caller?` (default `true`) is `true`, and value is immediately available, will call `fn1` on calling thread. Returns `nil.`"
+   ([port fn1] (take! port fn1 true))
+   ([port fn1 on-caller?
+      (let [ret (impl/take! port (fn-handler fn1))]
+        (when ret
+          (let [val @ret]
+            (if on-caller?
+              (fn1 val)
+              (dispatch/run #(fn1 val)))))
+        nil)])))
+
+(source put!)
+(comment
+  (defn put!
+    "Asynchronously puts a `val` into `port`, calling `fn1` (if supplied) when complete. `nil` values are not allowed. Will throw if closed. If `on-caller?` (default `true`) is `true`, and the put is immediately accepted, will call `fn1` on calling thread.  Returns `nil`."
+    ([port val
+       (if-let [ret (impl/put! port val fhnop)]
+         @ret
+         true)])
+    ([port val fn1] (put! port val fn1 true))
+    ([port val fn1 on-caller?
+       (if-let [retb (impl/put! port val (fn-handler fn1))]
+         (let [ret @retb]
+           (if on-caller?
+             (fn1 ret)
+             (dispatch/run #(fn1 ret)))
+           ret)
+         true)])))
+
+
+; Notice the same behavior in both async operations:
+; If `on-caller?` (default `true`) is `true`, and value is immediately available, will call `fn1` on calling thread.
+
+; This explains the callback behavior in our earlier phone calling example. If we want to change the behavior of these callbacks, we can set the `on-caller` parameter to `false`.
+
+; Now this works, but let's say we have a really aggressive robo-dialer or we're a franchise with orders coming in from around the world! The International House of Sushi! Sounds... terrible actually, but we could assume a really big number for example:
+
+; So we can keep track of what's going on with the channel in the following examples, let's alter our put!-order function to take an order number
+
+(defn put!-n-order [channel order n]
+  (put! channel (str "#: " n " order: " order) put-logger))
+
+(defn IHOS-orders [channel order]
+  (dotimes [x 2100] ; increase number of orders
+    (put!-n-order channel order x)))
+
+; refresh (re-eval) our fixed-chan
+(def fixed-chan (chan 10)) ; buffer = 10 put values
+
+(IHOS-orders fixed-chan "Nigiri!")
+;;=>
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; "order put: true"
+; ...
+; Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE) ...
+
+(take!-order fixed-chan)
+;; =>
+; "order taken: #: 0 order: Nigiri!"
+; "order put: true"
+; ...
+
+; 物の哀れ! What's happened is we've hit the limit of pending operations to our channel minus the capacity of our buffer (2100 puts - 10 buffer = 2090 pending puts > 1024 max.).
+
+; Ok, so we can get to first 10 of the orders in the buffer and the others that didn't overflow the pending puts queue, but - with the rest - we're in the same pickle we were before. Our charming little inbox, which may have served us fine before becoming the biggest sushi restaurant chain on the planet, is full **and we get an error thrown**, which may create havoc in our system.
+
+; What might we do now? Well, we could increase the size of our fixed buffer. That might be what we want. Or, we could use a "windowed buffer", of which there are two types: a `sliding-buffer` and a `dropping-buffer`.
 
 ; ===============================
-; Bot orders with sliding-buffer (drop oldest)
+; Handling Orders Deluge with a `sliding-buffer` (Drop Oldest Puts)
 ; ===============================
 
-; let's alter the code in two ways:
-; 1) add an order number to the order
-; 2) let's use a sliding-buffer instead of a fixed one
+; "Windowed" buffers serve as contracts or policies for how you handle incoming data. In our case, dropping orders may not seem the best policy, but lets entertain what happens when we do. First, let's use a `sliding-buffer`, which drops the oldest puts:
 
-(defn bot-orders-numbered [channel order]
-  (dotimes [x 2100] ; increase number of bot orders
-    (put! channel (str "#: " x " order: " order))))
+(source sliding-buffer)
+(comment
+  (defn sliding-buffer)
+  "Returns a `buffer` of size `n`. When full, puts will complete, and be buffered, but oldest elements in buffer will be dropped (not transferred)."
+  [n]
+  (buffers/sliding-buffer n))
 
-(def orders-chan-slide (chan (sliding-buffer 2))) ; buffer = 2 put values
+(def slide-chan (chan (sliding-buffer 10))) ; buffer = 10 put values
 
-(bot-orders-numbered orders-chan-slide "Sushi!")
+; Warning: Big log (and I don't mean the song by Robert Plant. That would be cool though....) ahead!
+(IHOS-orders slide-chan "Sashimi")
+; "order put: true"
+; "order put: true"
+; ... **2088 more**
 
-(take!-phone-order orders-chan-slide)
-; take 1) => "order taken: #: 2098 order: Sushi!" nil
-; take 2) => "order taken: #: 2099 order: Sushi!" nil
-; take 3) =>  nil
-; The reason we got 2099 instead of 2100 is due to the index of `x` starting at 0
+(take!-order slide-chan)
+; take 1) => "order taken: #: 2090 order: Nigiri!"
+; nil
+; take 2) => "order taken: #: 2091 order: Nigiri!"
+; nil
+; ...
+; take 10) => "order taken: #: 2099 order: Nigiri!"
+; nil
+; take 11) =>  nil
+
+; *Note: The reason we got 2099 instead of 2100 is due to the index of `x` starting at 0*
+
+; Now, we don't get that pesky error thrown, we have the last 10 orders, which were stored in the `sliding-buffer`, **but** all the other orders are thrown away. In some cases, this may be what you want. For non-critical streams of data, where the latest/newest values are the important ones. For example, say we have a display in our restaurant of the 10 latest sushi orders to go in, so as to give dine-in patrons that "I want what they're having" syndrome.
+
+; A different policy we might want to build into our incoming data source is to drop the latest data upon meeting some threshold. We can do that with a `dropping-buffer`.
 
 ; ===============================
-; Bot orders with dropping-buffer (drop latest)
+; Handling Traffic with a `dropping-buffer` (Drop Latest Puts)
 ; ===============================
 
-(def orders-chan-drop (chan (dropping-buffer 2))) ; buffer = 2 put values
+(source dropping-buffer)
+(comment
+  (defn dropping-buffer
+    "Returns a buffer of size `n`. When full, puts will complete but val will be dropped (no transfer)."
+    [n]
+    (buffers/dropping-buffer n)))
 
-(bot-orders-numbered orders-chan-drop "Sushi!")
+(def drop-chan (chan (dropping-buffer 10)))
 
-(take!-phone-order orders-chan-drop)
-; take 1) => "order taken: #: 0 order: Sushi!" nil
-; take 2) => "order taken: #: 1 order: Sushi!" nil
-; take 3) =>  nil
+(IHOS-orders drop-chan "Tofu Katsu")
+; "order put: true"
+; "order put: true"
+; ... **2088 more**
 
-; When dealing with upstream (putting) data source, sometimes this behavior is
-; useful. Like when you're getting bot'ed. We can say we should never expect
-; 2000 orders coming in via our online ordering system and dropping the latest
-; might be a simple way to ensure your system doesn't get backed up
-; by evil sushi-hatin' hackers.
+(take!-order drop-chan)
+; take 1) => "order taken: #: 0 order: Tofu Katsu"
+; nil
+; take 2) => "order taken: #: 1 order: Tofu Katsu"
+; nil
+; ...
+; take 10) => "order taken: #: 9 order: Tofu Katsu"
 
+; Now, once our buffer is full (10 values), any remaining puts will be completed (an their callbacks fired if supplied), but only the first 10 values will be kept. The rest are dropped. When dealing with upstream (putting) data source, sometimes this behavior is useful.
 
-; Buffers not only allow you to drop potentially out-dated or overzealous incomming
-; data, but also allow you to balance put (upstream) and take (downstream) data
-; sources, which might flow inconsistently. For example, if our sushi chefs
-; get the online orders only when they have time to do, say 50 orders
-; (in "bursts" of 50), a fixed buffer of 50 would allow them to take their
-; capacity and then open that buffer for the next 50 to fill up for the next run.
+; For our sushi restaurant, this is like having a special bar section called "The Roulette Room", which operates on a strict "first come first serve" policy. This isn't your run of the mill bar seating room though. You're not allowed to wait for a seat to open up (that would be rude to the guests). If a seat is open you can take it, but if not, you are sent away and you lose your place in line. You can't "park". Tagline: "That's just how we roll." The queue progresses with people being turned away until a seat opens up.
 
-; However, in this case we don't want to drop any orders (that's bad for business).
-; How might we accommodate this use case without dropping any orders?
+; Buffers not only allow you to drop potentially out-dated or overzealous incomming feeds, but also allow you to balance put (upstream) and take (downstream) data sources, which might flow inconsistently. For example, if our sushi chefs get the online orders only when they have time to do, say 50 orders (in "bursts" of 50), a fixed buffer of 50 would allow them to take their capacity and then open that buffer for the next 50 to fill up for the next run.)
+
+; But, we don't want to drop any orders (that's bad for business). How might we accommodate this use case without dropping any orders?)
 
 ; 888~~\                    888   _
 ; 888   |   /~~~8e   e88~~\ 888 e~ ~  888-~88e  888-~\  e88~~8e   d88~\  d88~\ 888  888 888-~\  e88~~8e
@@ -142,49 +298,182 @@
 ;                                     888
 
 ; ===============================
-; Bot orders with backpressure
+; Burst Orders with Backpressure Upstream (`>!`) and Async Downstream (`take!`)
 ; ===============================
 
 ; "One of the ways you can take care of (not dropping puts) is to implement backpressure by using a blocking construct on the entry point." - RH
 
-(defn bot-orders-w-backpressure [channel order]
+(source >!)
+(comment
+  (defn >!
+    "puts a `val` into `port`. nil values are not allowed. Must be called inside a `(go ...)` block. Will park if no buffer space is available. Returns `true` unless `port` is already closed."
+    [port val]
+    (throw (js/Error. ">! used not in (go ...) block"))))
+
+; Notice that the "parking" put function (`>!`) doesn't have a callback argument (as does `put!`). This is where the magic begis that will allow us to write our asynchronous code in a synchronous style. Callbacks as a communication method are a thing of the past. However, we have to move our `put-logger` outside the channel operation to get our logs now...
+
+(defn backpressured-orders [channel order]
   (go
     (dotimes [x 2100] ; increase number of bot orders
-      (>! channel (str "#: " x " order: " order)))))
+      (put-logger (>! channel (str "#: " x " order: " order))))))
 
-(def orders-chan-burst (chan 50))
-
-(bot-orders-w-backpressure orders-chan-burst "Sashimi!")
+(def burst-chan (chan 50))
 
 (defn burst-take! [channel]
   (dotimes [x 50] ; increase number of bot orders
-    (take! channel take-logger)))
+    (take!-order channel)))
 
-(burst-take! orders-chan-burst)
+(backpressured-orders burst-chan "Umami Tamago")
+; =>
+; "order put: true"
+; "order put: true"
+; ... 48 more
+
+(burst-take! burst-chan)
 ; FIRST EVAL =>
-; "order taken: #: 0 order: Sashimi!"
+; "order taken: #: 0 order: Umami Tamago"
 ; ...
-; "order taken: #: 49 order: Sashimi!"
+; "order taken: #: 49 order: Umami Tamago"
+; "order put: true"
+; "order put: true"
+; ... 48 more
 
 ; SECOND EVAL =>
-; "order taken: #: 50 order: Sashimi!"
+; "order taken: #: 50 order: Umami Tamago"
 ; ...
-; "order taken: #: 99 order: Sashimi!"
+; "order taken: #: 99 order: Umami Tamago"
+; "order put: true"
+; "order put: true"
+; ... 48 more
 
-; What allowed us to both hydrate the buffer with 50 orders AND qeue up the
-; remaining pending orders is backpressure. By wraping our putting bot-orders
-; in a `(go...)` block and changing the `put!` to its corresponding "parking"
-; syntax `>!` we've spun up a thread (in JavaScript a state-machine) that
-; conducts some "magic-internal-callback-hell" internally to register and keep
-; track of the pending puts without overflowing the channel. Notice that we
-; used a fixed buffer of 50, which - without backpressure - would not accommodate
-; the 2100 bot-orders sent. Without backpressure, we would have gotten the error
-; we saw before:
-;;=> Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
+; As you can see, upon evaluation of `backpressured-orders` we get 50 orders put into the fixed buffer. Then - with each evaluation of `burst-take!` - we get a set of 50 takes (exhausing the buffer) and 50 more puts, which fill up the buffer again.
 
-; Now no orders will ever be dropped. But, what if we can't handle all the orders?
-; We don't want to drop order. We also don't want customers to place an order if
-; There's no hope of them ever getting filled. So, what do we do?
+; Also notice, that we we're significantly over the queue limit on the other side of our buffer. However, we didn't get the `(MAX-QUEUE-SIZE)` Error as we did in the case using `put!`.
+
+; What allowed us to queue up the remaining pending orders (after our buffer 50 filled up) - even though we're over the 1024 allowance for pending puts - is backpressure. By wraping our orders' puts in a `(go...)` block and changing the `put!` to its corresponding "parking" syntax (`>!`) we've spun up a thread (in JavaScript an "Inversion of Control" state-machine) that conducts some "magic-callback-hell-behind-the-scenes" to register and keep track of the pending puts without overflowing the channel. In effect, we are able to postpone put operations that would cause the channel's queue to overflow and only convey those for which there are active takes and/or room in a buffer.
+
+; Elaboration: Backpressure prevents putting operations from getting registered to the handlers' queu in the channel. Instead of using the channel's puts queu, the "blocking" `(go...)` leverages an internal state machine (JavaScript) that keeps track of the state of the `dotimes` function (in this case) and effectively pauses it when there's no availability for puts in the channel. This allows upstream "producers" of data to govern their rate of production according to the capacity the consumers downstream.
+
+
+; ===============================
+; Burst Orders with Backpressure Upstream (`>!`), "Parking" Downstream (`<!`)
+; ===============================
+
+; We can also effect a similar functionality by using a "blocking" syntax downstream
+
+(source <!)
+(comment
+  (defn <!
+    "takes a val from `port`. Must be called inside a `(go ...)` block. Will return nil if closed. Will park if nothing is available. Returns `true` unless port is already closed"
+    [port]
+    (throw (js/Error. "<! used not in (go ...) block"))))
+
+(def burst-chan (chan 50))
+
+(defn burst-<! [channel]
+  (go
+    (dotimes [x 50] ; increase number of bot orders
+      (take-logger (<! channel)))))
+
+(backpressured-orders burst-chan "Umami Tamago")
+; same as before
+(burst-<! burst-chan)
+; same as before
+
+; ===============================
+; Burst Orders with Async Upstream (`put!`) Downstream "Parking" (`<!`)
+; ===============================
+
+
+; However, if we were to reverse the backpressure, i.e., use the asynchronous putting syntax (`put!`) upstream with the "parking" take syntax (`<!`) downstream...
+
+(def burst-chan (chan 50))
+
+(IHOS-orders burst-chan "Miso Soup!")
+; Old faithful:
+; Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
+
+(burst-<! burst-chan)
+; No bueno
+
+; The lesson here is that **if you want to "respect backpressure", the parking syntax `(go ...(>! ...))` *must be implemented upstream* (from the producer/putting end) of the channel.**
+
+; Now, no orders will ever be dropped. But, what if we can't handle all those orders? We don't want to drop orders. We also don't want customers to place an order if there's no hope of them ever getting filled. So, what do we do? Well, there are lots of ways we can control the behavior of our channels, but let's start with a few fundamental control structures.
+
+;           888   d8           d8b
+;   /~~~8e  888 _d88__  d88~\ !Y88!
+;       88b 888  888   C888    Y8Y
+;  e88~-888 888  888    Y88b    8
+; C888  888 888  888     888D   e
+;  "88_-888 888  "88_/ \_88P   "8"
+
+; ===============================
+; Basic Channel Control with `alts!`
+; ===============================
+
+
+
+(source alts!)
+(comment
+  (defn alts!)
+  "Completes at most one of several channel operations. Must be called inside a `(go ...) block`.` ports` is a vector of channel endpoints, which can be either a channel to take from or a vector of `[channel-to-put-to val-to-put]`, in any combination. Takes will be made as if by `<!`, and puts will be made as if by `>!`. Unless the `:priority` option is `true`, if more than one port operation is ready a non-deterministic choice will be made. If no operation is ready and a `:default` value is supplied, `[default-val :default]` will be returned, otherwise `alts!` will park until the first operation to become ready completes. Returns `[val port]` of the completed operation, where `val` is the value taken for takes, and a boolean (`true` unless already closed, as per `put!`) for puts.
+
+  `opts` are passed as `:key val`
+
+  Supported options:
+
+  `:default val` - the value to use if none of the operations are immediately ready
+  `:priority true` - (default nil) when `true`, the operations will be tried in order.
+
+  Note: there is no guarantee that the port exps or val exprs will be used, nor in what order should they be, so they should not be depended upon for side effects."
+
+  [ports & {:as opts}]
+  (throw (js/Error. "alts! used not in (go ...) block")))
+
+
+
+(defn backpressured-orders [channel order]
+  (go
+    (dotimes [x 2100] ; increase number of bot orders
+      (put-logger (>! channel (str "#: " x " order: " order))))))
+
+(def burst-chan (chan 50))
+
+(defn burst-take! [channel]
+  (dotimes [x 50] ; increase number of bot orders
+    (take!-order channel)))
+
+(defn full->closed [channel max]
+  (let [closer (close!)])
+  (go
+    (dotimes [x 2100] ; increase number of bot orders
+      (put-logger (>! channel (str "#: " x " order: " order)))))
+;
+; ~~~888~~~   ,88~-_   888~-_     ,88~-_
+;    888     d888   \  888   \   d888   \
+;    888    88888    | 888    | 88888    |
+;    888    88888    | 888    | 88888    |
+;    888     Y888   /  888   /   Y888   /
+;    888      `88_-~   888_-~     `88_-~
+;
+
+
+  (let [tmt (timeout 3000)]
+    (go (while true (<! (timeout 250)) (>! port 1)))
+    (go (while true (<! (timeout 500)) (>! port 2)))
+    (go (while true (<! (timeout 750)) (>! port 3)))
+    (go-loop [_ []]
+      (let [[val ch] (alts! [port tmt])]
+        (cond
+          (= ch tmt) (.log js/console (str "done"))
+          :else
+          (recur (.log js/console (str "process: " (<! port)))))))))
+
+
+(def test-chan (chan))
+
+(timeout-chan test-chan)
+
 
 ;         888                            d8b
 ;  e88~~\ 888  e88~-_   d88~\  e88~~8e  !Y88!
@@ -192,6 +481,10 @@
 ; 8888    888 8888   |  Y88b  8888__888   8
 ; Y888    888 Y888   '   888D Y888    ,   e
 ;  "88__/ 888  "88_-~  \_88P   "88___/   "8"
+
+; ===============================
+; Shutdown Orders with `close!`
+; ===============================
 
 
 
@@ -202,14 +495,6 @@
 ;  888   888 888  888  888 8888__888 8888   | 888  888  888     8
 ;  888   888 888  888  888 Y888    , Y888   ' 888  888  888     e
 ;  "88_/ 888 888  888  888  "88___/   "88_-~  "88_-888  "88_/  "8"
-
-
-;           888   d8           d8b
-;   /~~~8e  888 _d88__  d88~\ !Y88!
-;       88b 888  888   C888    Y8Y
-;  e88~-888 888  888    Y88b    8
-; C888  888 888  888     888D   e
-;  "88_-888 888  "88_/ \_88P   "8"
 
 
 

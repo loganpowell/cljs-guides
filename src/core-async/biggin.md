@@ -56,55 +56,106 @@ Feature          | Mac/Fnc | Analogy | Example
 `alts!`          | fnc     | a "valve/switch" in the conveyor (alt* are the only ops that works on both sides of the channel) => dynamic switch (used at runtime) |
 
 
-# `core.async` and the Hottest Conveyor Sushi Bar in the City.
+# `core.async`: the Hottest Sushi Bar in the City.
+
+## Dependencies
+
+### Your Namespace
+```clj
+(ns core-async.core
+  (:require  [cljs.core.async :refer [>! <! chan put! take! timeout close! alts! dropping-buffer sliding-buffer]]
+             [cljs.core.async :refer-macros [go go-loop alt!]]))
+```
+
+## Code
+
+Working examples in [core.cljs](./core.cljs)
+
+
+# Putting and Taking Orders
+
+Let's create some shortcut utilities for logging out when orders where placed and received:
+
+```clj
+(defn take-logger [val]
+  (prn (str "order taken: " val)))
+
+(defn put-logger [val]
+  (prn (str "order in: " val)))
+```
+
 
 ### Customers Put, Cooks Take Orders (No Buffer)
 Scenario | `take!`| `<!`
 ---      | :---:  | :---:
-`put!`   | 1      | 2         
-`>!`     | 3      | 4
+`put!`   | **1**  | **2**         
+`>!`     | **3**  | **4**
 
 ## 1: Using Callbacks for Both Puts and Takes
-![you call, but no one's home](https://media.giphy.com/media/sopqXPdQgS6GI/giphy.gif)
+
 ##### Using `put!` with `take!`
 
-### `put!` Basics
+---
+### [`put!`](https://clojuredocs.org/clojure.core.async/put!) Basics
 
-[Usage](https://clojuredocs.org/clojure.core.async/put!)
-`(put! port val)`
-`(put! port val fn1)`
-`(put! port val fn1 on-caller?)`
+Options:
+- `(put! port val)`
+- `(put! port val fn1)`
+- `(put! port val fn1 on-caller?)`
 
+Usage:
 - Asynchronously puts a `val` into `port`, calling `fn1` (if supplied) when complete, passing `false` if `port` is already closed.
+- Returns a `true` unless `port` is already closed
 - `nil` values are not allowed.
-- If `on-caller?` (default `true`) is `true`, and the put is
- immediately accepted, will call fn1 on calling thread.  Returns
- true unless port is already closed
+- If `on-caller?` (default `true`) is `true`, and the put is immediately accepted, will call `fn1` on calling thread.  
+
+---
 
 
 
 
+
+For this exercise, we'll use only the "non-parking" `put!` and `take!` functions with a "bufferless" `chan` to convey our orders between customers and cooks:
+
+```clj
+(defn put!-phone-order [channel order]
+  (put! channel order put-logger))
+
+(defn take!-phone-order [channel]
+  (take! channel take-logger))
+
+(def bufferless-orders-chan (chan))
+```
+
+Then add some orders and/or take some orders from the `bufferless-orders-chan`:
+
+```clj
+;; eval at will:
+(put!-phone-order bufferless-orders-chan "Futo Maki")
+(put!-phone-order bufferless-orders-chan "Vegan Spider")
+;; eval at will:
+(take!-phone-order bufferless-orders-chan)
+```
 
 ### Customers Put, Cooks Take Orders (With Buffer)
 Scenario | `take!`| `<!`
 ---      | :---:  | :---:
-`put!`   | 1      | 2         
-`>!`     | 3      | 4
+`put!`   | **1**  | **2**         
+`>!`     | **3**  | **4**
 
+# Putting and Taking Sushi
 
 ### Cooks Put, Customers Take Sushi (Transducers without Buffer)
 Scenario | `take!`| `<!`
 ---      | :---:  | :---:
-`put!`   | 1      | 2         
-`>!`     | 3      | 4
+`put!`   | **1**  | **2**         
+`>!`     | **3**  | **4**
 
-
-### Cooks Put, Customers Take Sushi (Transducers with Buffer)
+### Cooks Put, Customers Take Sushi (Transducers with Windowed Buffer)
 Scenario | `take!`| `<!`
 ---      | :---:  | :---:
-`put!`   | 1      | 2         
-`>!`     | 3      | 4
-
+`put!`   | **1**  | **2**         
+`>!`     | **3**  | **4**
 
 
 
