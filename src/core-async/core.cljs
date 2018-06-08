@@ -137,7 +137,7 @@
 ; nil
 
 
-; Notice how the last 10 `put!` callback don't fire. This is due to the fact that the last 10 takes are being pulled from the buffer instead of the pending put operations queue as was the case before. Let's look at the source for `put!` and `take!` to expore the inner workings a bit more.
+; The last 10 `put!` callback don't fire. This is due to the fact that the last 10 takes are being pulled from the buffer instead of the pending put operations queue as was the case before. Let's look at the source for `put!` and `take!` to expore the inner workings a bit more.
 
 (source take!)
 (comment
@@ -172,7 +172,7 @@
          true)])))
 
 
-; Notice the same behavior in both async operations:
+; The same behavior in both async operations:
 ; If `on-caller?` (default `true`) is `true`, and value is immediately available, will call `fn1` on calling thread.
 
 ; This explains the callback behavior in our earlier phone calling example. If we want to change the behavior of these callbacks, we can set the `on-caller` parameter to `false`.
@@ -206,13 +206,13 @@
 ; ...
 ; Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE) ...
 
+; 物の哀れ! What's happened is we've hit the limit of pending operations to our channel minus the capacity of our buffer (2100 puts - 10 buffer = 2090 pending puts > 1024 max.).
+
 (take!-order fixed-chan)
 ;; =>
 ; "order taken: #: 0 order: Nigiri!"
 ; "order put: true"
 ; ...
-
-; 物の哀れ! What's happened is we've hit the limit of pending operations to our channel minus the capacity of our buffer (2100 puts - 10 buffer = 2090 pending puts > 1024 max.).
 
 ; Ok, so we can get to first 10 of the orders in the buffer and the others that didn't overflow the pending puts queue, but - with the rest - we're in the same pickle we were before. Our charming little inbox, which may have served us fine before becoming the biggest sushi restaurant chain on the planet, is full **and we get an error thrown**, which may create havoc in our system.
 
@@ -350,9 +350,9 @@
 
 ; Also notice, that we we're significantly over the queue limit on the other side of our buffer. However, we didn't get the `(MAX-QUEUE-SIZE)` Error as we did in the case using `put!`.
 
-; What allowed us to queue up the remaining pending orders (after our buffer 50 filled up) - even though we're over the 1024 allowance for pending puts - is backpressure. By wraping our orders' puts in a `(go...)` block and changing the `put!` to its corresponding "parking" syntax (`>!`) we've spun up a thread (in JavaScript an "Inversion of Control" state-machine) that conducts some "magic-callback-hell-behind-the-scenes" to register and keep track of the pending puts without overflowing the channel. In effect, we are able to postpone put operations that would cause the channel's queue to overflow and only convey those for which there are active takes and/or room in a buffer.
+; What allowed us to queue up the remaining pending orders (after our buffer 50 filled up) - even though we're over the 1024 allowance for pending puts - is backpressure. By wraping our orders' puts in a `(go...)` block and changing the `put!` to its corresponding "parking" syntax (`>!`) we've spun up a thread (in JavaScript an ["Inversion of Control" state-machine](http://hueypetersen.com/posts/2013/08/02/the-state-machines-of-core-async/)) that conducts some "magic-callback-hell-behind-the-scenes" to register and keep track of the pending puts without overflowing the channel. In effect, we are able to postpone put operations that would cause the channel's queue to overflow and only convey those for which there are active takes and/or room in a buffer.
 
-; Elaboration: Backpressure prevents putting operations from getting registered to the handlers' queu in the channel. Instead of using the channel's puts queu, the "blocking" `(go...)` leverages an internal state machine (JavaScript) that keeps track of the state of the `dotimes` function (in this case) and effectively pauses it when there's no availability for puts in the channel. This allows upstream "producers" of data to govern their rate of production according to the capacity the consumers downstream.
+; Elaboration: Backpressure prevents putting operations from getting registered to the handlers' queu in the channel. Instead of using the channel's puts queu, the "blocking" `(go...)` creates a state machine that keeps track of the state of the `dotimes` function (in this case) and effectively pauses it when there's no availability for puts in the channel. This allows upstream "producers" of data to govern their rate of production according to the capacity the consumers downstream.
 
 
 ; ===============================
@@ -411,43 +411,26 @@
 ; Basic Channel Control with `alts!`
 ; ===============================
 
-
-
 (source alts!)
 (comment
-  (defn alts!)
-  "Completes at most one of several channel operations. Must be called inside a `(go ...) block`.` ports` is a vector of channel endpoints, which can be either a channel to take from or a vector of `[channel-to-put-to val-to-put]`, in any combination. Takes will be made as if by `<!`, and puts will be made as if by `>!`. Unless the `:priority` option is `true`, if more than one port operation is ready a non-deterministic choice will be made. If no operation is ready and a `:default` value is supplied, `[default-val :default]` will be returned, otherwise `alts!` will park until the first operation to become ready completes. Returns `[val port]` of the completed operation, where `val` is the value taken for takes, and a boolean (`true` unless already closed, as per `put!`) for puts.
+  (defn alts!
+    "Completes at most one of several channel operations. Must be called inside a `(go ...) block`.` ports` is a vector of channel endpoints, which can be either a channel to take from or a vector of `[channel-to-put-to val-to-put]`, in any combination. Takes will be made as if by `<!`, and puts will be made as if by `>!`. Unless the `:priority` option is `true`, if more than one port operation is ready a non-deterministic choice will be made. If no operation is ready and a `:default` value is supplied, `[default-val :default]` will be returned, otherwise `alts!` will park until the first operation to become ready completes. Returns `[val port]` of the completed operation, where `val` is the value taken for takes, and a boolean (`true` unless already closed, as per `put!`) for puts.
 
-  `opts` are passed as `:key val`
+    Supported options: (`opts` are passed as `:key val`)
 
-  Supported options:
+    `:default val` - the value to use if none of the operations are immediately ready
+    `:priority true` - (default nil) when `true`, the operations will be tried in order.
 
-  `:default val` - the value to use if none of the operations are immediately ready
-  `:priority true` - (default nil) when `true`, the operations will be tried in order.
+    Note: there is no guarantee that the port exps or val exprs will be used, nor in what order should they be, so they should not be depended upon for side effects."
 
-  Note: there is no guarantee that the port exps or val exprs will be used, nor in what order should they be, so they should not be depended upon for side effects."
+    [ports & {:as opts}]
+    (throw (js/Error. "alts! used not in (go ...) block"))))
 
-  [ports & {:as opts}]
-  (throw (js/Error. "alts! used not in (go ...) block")))
+; Now that we know how to handle deluges of upstream data (i.e., from puts) and have gotten acquainted with the limits of channels pending operations queues, we can reduce the number of puts and takes (and logging) to focus on controlling the qualities of behavior (rather than quantities of traffic) of our channels.
+
+; Let's refactor our `take-order!` function so it allows us to keep track of how many orders have come through.
 
 
-
-(defn backpressured-orders [channel order]
-  (go
-    (dotimes [x 2100] ; increase number of bot orders
-      (put-logger (>! channel (str "#: " x " order: " order))))))
-
-(def burst-chan (chan 50))
-
-(defn burst-take! [channel]
-  (dotimes [x 50] ; increase number of bot orders
-    (take!-order channel)))
-
-(defn full->closed [channel max]
-  (let [closer (close!)])
-  (go
-    (dotimes [x 2100] ; increase number of bot orders
-      (put-logger (>! channel (str "#: " x " order: " order)))))
 ;
 ; ~~~888~~~   ,88~-_   888~-_     ,88~-_
 ;    888     d888   \  888   \   d888   \
@@ -455,24 +438,28 @@
 ;    888    88888    | 888    | 88888    |
 ;    888     Y888   /  888   /   Y888   /
 ;    888      `88_-~   888_-~     `88_-~
-;
 
 
-  (let [tmt (timeout 3000)]
-    (go (while true (<! (timeout 250)) (>! port 1)))
-    (go (while true (<! (timeout 500)) (>! port 2)))
-    (go (while true (<! (timeout 750)) (>! port 3)))
-    (go-loop [_ []]
-      (let [[val ch] (alts! [port tmt])]
-        (cond
-          (= ch tmt) (.log js/console (str "done"))
-          :else
-          (recur (.log js/console (str "process: " (<! port)))))))))
 
+(source close!)
 
-(def test-chan (chan))
+(defn max-order [channel order]
+  (go
+    (do
+      (dotimes [x 12]
+        (put-logger (>! channel (str "#: " x " order: " order))))
+      (close! channel))))
 
-(timeout-chan test-chan)
+(def capacity (chan 5))
+
+(defn take!-til-closed [channel]
+  (dotimes [x 5]
+    (take!-order channel)))
+
+(max-order capacity "Wildcard")
+
+(take!-til-closed capacity)
+
 
 
 ;         888                            d8b
