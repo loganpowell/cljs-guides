@@ -111,10 +111,7 @@ Usage:
 
 ---
 
-
-
-
-
+; ;
 For this exercise, we'll use only the "non-parking" `put!` and `take!` functions with a "bufferless" `chan` to convey our orders between customers and cooks:
 
 ```clj
