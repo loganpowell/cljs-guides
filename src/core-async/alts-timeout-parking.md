@@ -149,6 +149,8 @@ Which logs:
 Essentially, `alts!` is a control structure, which will take from one of a number of channels depending on which is available at the time of choosing. In this case, the timeout block won't be available to take from until 3000 milliseconds have elapsed, at which point it will remain available for taking from the looping `(recur ... (<! port))` take, whereas the values coming from the triplet sequence of putting `(go (while...))` loops are only available periodically. Thus, the `tmt` channel gets taken from when its time runs out, effectively starving the taking operations in the looping `(go (while...))` blocks, thus "parking" their puts.
 
 
+
+
 # "Parking"
 
 Let's zoom in further into our channel, temporarily disregarding the i/o relationships to focus on the inner workings of the `core.async` channel (our conveyor belt) alone:
@@ -224,39 +226,9 @@ We used `timeout` above to terminate our process. It's important to note that - 
 
 We'll build some more responsibility into our channels using buffers. Find the link to the guide and more [in the index](./core-async-index.md).
 
-# Getting Help
-
-## Join the Clojurian's Slack Channel
-
-In the making of this guide, I leveraged the wonderful community of Clojure(Script) users on the [Clojurians' Slack](http://clojurians.net/).
-
-- If you're new to Clojure(Script), I highly recommend the [#beginners channel](https://clojurians.slack.com/messages/beginners/)
-- If you're new to `core.async`, there's a [#core-async channel](https://clojurians.slack.com/messages/core-async/) as well!
-
-I think you'll find the members of the community are some of the most generous people you'll ever meet.
-
-## Special Thanks
-
-- Great help from these guys on the Clojurians' Slack:
-  - [noisesmith](https://twitter.com/noisesmith)
-  - [hiredman](https://github.com/hiredman)
-  - [SeanCorfield](https://twitter.com/seancorfield)
-  - [BrianRubinton](https://twitter.com/brianru)
-- [David Nolen](https://twitter.com/swannodette) for his awesome [blog posts](http://swannodette.github.io/2013/07/12/communicating-sequential-processes) and [webinars](https://purelyfunctional.tv/programmer-profiles/david-nolen/) and - of course - for [ClojureScript!](https://github.com/clojure/clojurescript/graphs/contributors)
-- [Timothy Baldridge](https://twitter.com/timbaldridge) and [Alex Miller](https://twitter.com/puredanger) for [`core.async`](https://github.com/clojure/core.async/graphs/contributors). Tim also has some great [`core.async` tutorials](https://tbaldridge.pivotshare.com/home)!
 
 ## Additional Resources
 
-- Implementation of `core.async` [Rich Hickey presentation](https://vimeo.com/100518968)
-  - [transcript and slides](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/ImplementationDetails.md) courtesy of [Matthias Nehlsen](https://github.com/matthiasn)
-- Presentation: [`core.async` debut](https://www.youtube.com/watch?v=VrmfuuHW_6w) with Rich Hickey
-  - [Transcript and slides](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md) courtesy of [Matthias Nehlsen](https://github.com/matthiasn)
-- `core.async`: Concurrency Without Callbacks from [Stuart Halloway](https://www.infoq.com/presentations/core-async)
-  - github [source for examples](https://github.com/cognitect/async-webinar) from the talk
-- Timeouts and Working with Multiple Channels via Parking and `alts!` by [Will Fleming](https://wtfleming.github.io/2015/05/27/adventures-with-core-async-part-two-parking-timeouts-alt/)
-- Other Examples from [Tim Baldridge](https://github.com/halgari/clojure-conj-2013-core.async-examples/blob/master/src/clojure_conj_talk/core.clj)
-- David Nolen [Webinar Examples](https://github.com/cognitect/async-webinar/blob/master/src/webinar/core.cljs)
-- Interview with Tim Baldridge [discussing `core.async`](https://www.infoq.com/interviews/baldridge-core-async).
 
 #### More on Threads and Parking:
 

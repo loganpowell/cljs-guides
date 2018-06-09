@@ -659,6 +659,13 @@
     [ports & {:as opts}]
     (throw (js/Error. "alts! used not in (go ...) block"))))
 
+(source timeout)
+(comment
+  (defn timeout
+    "Returns a channel that will close after msecs"
+    [msecs]
+    (timers/timeout msecs)))
+
 ; Let's make our example a little more interesting. Say we have three bars at each of our sushi restaurants, each taking orders in (simultaneously!) at different intervals (some are more popular than others). Let's also say that our restaurant stops taking orders after 3000 milliseconds of operation time ("Fastest Sushi on the Planet"™).
 
 (defn timeout-chan [channel]
@@ -691,7 +698,12 @@
 ; Order up: Roulette Room
 ; No more orders. Domo Arigatogozaimashita.
 
+; We used `timeout` above to terminate our process. It's important to note that while `timeout` does return a channel, that the channel is only there to signal you when the given number of milliseconds has elapsed and it signals that by giving you a closed `chan`. This is one method for properly terminating a looping `go`: Stop it taking from or putting to the target `chan` by switching to a closed channel (via `alts!`).
+
+; But more importantly...
+
 # We just spun up three. independent. synchronous. threads. Yeah, we just did that in three lines of code.
+
 ; This is not a section. I just thought an H1 was apropos.
 
 ; Now we can drain the pending orders from the buffer and let our cooks get to more important things... Yamazaki.
