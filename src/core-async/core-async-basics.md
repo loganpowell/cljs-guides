@@ -6,9 +6,9 @@ tags: ['cljs', 'core-async', 'clojurescript', 'go', 'chan']
 license: 'public-domain'
 ---
 
-# `cljs.core.async` Basics'
+# `core.async` and a Sushi Bar. A Love Story.
 
-![Comparing Channels to Direct Communication](http://endot.org/notes/2014-02-14-core-async-clojure/compare.png)
+![love story](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/conveyor-sushi-front-page.gif)
 
 ## Dependencies
 
@@ -19,10 +19,7 @@ license: 'public-domain'
   (:use [clojure.repl :only (source)]))
 ```
 
-ANSII ART courtesy: http://patorjk.com/software/taag/#p=display&h=2&v=0&f=Bolger&t=Buffer
-
 Convenience utilities (you'll want these handy at the top of the file for later, but we'll get to them then)
-
 
 ## Orders Utils
 
@@ -49,37 +46,36 @@ Convenience utilities (you'll want these handy at the top of the file for later,
 
 ---
 
-Channels are the backbone of `core.async`. As in Clojure(Script), immutable data collections are the backbone, channels can be thought of as a special kind of data collection. A channel is similar in some ways to a vector (or an array in JavaScript). Like vectors, channels are collections that take values from one end (upstream) and discharge them from the other (downstream). However, unlike vectors (or arrays), channels ("queues") *only convey one value **at a time*** (asynchronous).
+# Introduction
 
-In my mind, I see a vector as a two-dimensional box, who's contents stretch the box along its x-axis. Whereas, with a queue (channel), which can only contain one value at any given time, its a three-dimensional box with new values stretching the box along the z axis (time). However, unlike vectors (or even Rx/observable streams)`core.async` channels can not only contain values within its "box" (buffer) - they can make operations seeking to put to or take from the queue wait in a line - outside the box - along that z-axis without the developer having to use callbacks to line them up! This provides a huge convenience for asynchronous programming. As we'll see in the following examples, these features of `core.async` abstract away the complexity of callbacks, allowing you to write asynchronous programs in a blissfully synchronous fashion.
+Channels are the backbone of `core.async`. As in Clojure(Script), immutable data collections are the backbone, channels can be thought of as a special kind of data collection. A channel is similar in some ways to a vector (or an array in JavaScript). Like vectors, channels are collections that take values from one end (upstream) and discharge them from the other (downstream). However, unlike vectors (or arrays), channels *only convey one value at a time* (asynchronous).
 
+In my mind, I see a vector as a two-dimensional box, who's contents stretch the box along its x-axis. Whereas, with a queue (channel), its a three-dimensional box with new values stretching the box along the z axis (time). However, unlike vectors (or even Rx/observable streams)`core.async` channels can not only contain values within its "box" (buffer), they can make operations seeking to put to or take from the queue wait in a line - outside the box - along that z-axis without the developer having to use callbacks to line them up! This provides a huge convenience for asynchronous programming. As we'll see in the following examples, these features of `core.async` abstract away the complexity of callbacks, allowing you to write asynchronous programs in a blissfully synchronous fashion.
+
+Don't get me wrong. This bliss comes at a cost. There's a non-trivial learning curve involved. But I hope, after going through - and importantly running - the examples herein, you'll have the fundamentals to prepare you and get you excited to use them.
 
 `core.asyc` outperforms other async vehicles in a number of ways, but here are just a few highlights:
 
 - **Write asynchronous code as if it was synchronous**
-- They're [faster]((http://swannodette.github.io/2013/08/23/make-no-promises) than Promises.
-- **Processes are first class**: you can use `core.async` channels and `go` blocks not only to pass data/values around, but pass also processes themselves! This feature enables you to take processes and de/compose them to do incredibly sophisticated things in just a few lines of code.
+- They're [faster than Promises](http://swannodette.github.io/2013/08/23/make-no-promises) .
+- **Processes are first class**: you can use `core.async` channels not only to pass data/values around, but pass also channels! This feature enables you to take processes and de/compose them to do incredibly sophisticated things in just a few lines of code.
 - **Treat channel i/o data as you would _any other_ collection in ClojureScript**. Enabling you to learn one set of operations (e.g., `map`, `filter`, etc... using [transducers](https://blog.venanti.us/using-transducers-with-core-async-clojurescript/)) to rule them all!
 
 This last selling point was really the clincher for me. The idea of learning one set of operations that could be used across all my code, both asynchronous and synchronous, in a way that would improve my skills with the *language* (not just the library) seems more efficient IMHO.
 
-Also, if you're coming to the light via JavaScript (React/RxJS), have a read of these two articles from the great [Bobby Schultz](https://twitter.com/puppybits):
+Also, if you're coming to the light via JavaScript, have a read of these two articles from the great [Bobby Schultz](https://twitter.com/puppybits):
 - [ReactJS with CSP & core.async](https://medium.com/@puppybits/react-without-flux-a76236d1e1d)
-- [RxJS is great. So why have I moved on?](https://medium.com/@puppybits/rxjs-is-great-so-why-have-i-moved-on-534c513e7af3) TLDR:
-  - Do you like RxJS/Flux/Redux-type Observables? Got that.
-  - How about Go and Es2016 awaits and generators? Got that and better with transducers.
-  - Like immutable data? Got the best implementation around.
-  - Like travel traveling, teleportation, telekinesis? That’s trivial in cljs.
-  - Like having a great community with great libraries? Got that.
-  - Great composability with just the right amount of encapsulation? Yep.
-  - Writing code in whatever way is best for your data? ClojureScript is a full language.
-  - Do you like not ripping out your entire data model when a new Flux comes along? We’ve unsubscribed from the flux of the month club long ago.
-
-Don't get me wrong. This bliss comes at a cost. There's a non-trivial learning curve involved. But I hope, after going through - and importantly running - the examples herein, you'll have the fundamentals to prepare you and get you excited to use them.
+- [RxJS is great. So why have I moved on?](https://medium.com/@puppybits/rxjs-is-great-so-why-have-i-moved-on-534c513e7af3)
 
 Enough talk. Let's start.
 
 For these examples, we'll use an analogy to help explain things. Let's say we're operating a sushi bar and we're starting small, just to handle taking some orders from customers...
+
+## Differences in `core.async` between Clojure and ClojureScript
+
+There are a few differences between the features of `core.async` in Clojure and ClojureScript as a matter of necessity. Though Clojure has threads, Node/JavaScript only has a single thread, so any thread-blocking operation will not - by default - be available in ClojureScript's implementation.
+
+Very roughly speaking - anything that has "blocking" semantics in `clojure.core.async` (e.g., anything with two `!!`s) will not be  available in `cljs.core.async`.
 
 
 ## One-time Async Orders on a `chan` with `put!` and `take!`
@@ -91,69 +87,84 @@ Let's take a look at a slide about the channel "Service Provider Interface" (SPI
 
 We'll start with three parts of the SPI: `chan`, `put!` and `take!`
 
-Let's take a look at a slide about the channel anatomy from Rich Hickey's [presentation](https://vimeo.com/100518968), temporarily disregarding the i/o relationships to focus on the inner workings of the `core.async` channel (our conveyor belt) alone:
+---
 
-![anatomy](https://github.com/matthiasn/talk-transcripts/raw/master/Hickey_Rich/ImplementationDetails/00.06.23.jpg)
-
+### Docs:
 ```clj
 (source chan)
-(comment
-  (defn chan
-    "Creates a channel with an optional buffer, an optional transducer (like `(map f)`, `(filter p)` etc or a composition thereof), and an optional exception handler. If `buf-or-n` is a number, will create and use a fixed buffer of that size. If a transducer is supplied a buffer must be specified. `ex-handler` must be a fn of one argument - if an exception occurs during transformation it will be called with the thrown value as an argument, and any non-nil return value will be placed in the channel."
-    ([] (chan nil))
-    ([buf-or-n] (chan buf-or-n nil nil))
-    ([buf-or-n xform] (chan buf-or-n xform nil))
-    ([buf-or-n xform ex-handler]
-     (let [buf-or-n (if (= buf-or-n 0)
-                      nil
-                      buf-or-n)]
-       (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
-       (channels/chan (if (number? buf-or-n)
-                        (buffer buf-or-n)
-                        buf-or-n)
-                      xform
-                      ex-handler)))))
 ```
+```clj
+(defn chan
+  "Creates a channel with an optional buffer, an optional transducer (like `(map f)`, `(filter p)` etc or a composition thereof), and an optional exception handler. If `buf-or-n` is a number, will create and use a fixed buffer of that size. If a transducer is supplied a buffer must be specified. `ex-handler` must be a fn of one argument - if an exception occurs during transformation it will be called with the thrown value as an argument, and any non-nil return value will be placed in the channel."
+  ([] (chan nil))
+  ([buf-or-n] (chan buf-or-n nil nil))
+  ([buf-or-n xform] (chan buf-or-n xform nil))
+  ([buf-or-n xform ex-handler]
+   (let [buf-or-n (if (= buf-or-n 0)
+                    nil
+                    buf-or-n)]
+     (when xform (assert buf-or-n "buffer must be supplied when transducer is"))
+     (channels/chan (if (number? buf-or-n)
+                      (buffer buf-or-n)
+                      buf-or-n)
+                    xform
+                    ex-handler))))
+```
+
+---
 
 A `core.async` channel (`chan`) can take from 0 to 3 arguments. To start, we'll use a simple `chan`, which creates a bufferless channel with no value transformations or exception handlers,  which forces the channel to queue up any pending  put or take operations instead of allowing put operations to discharge values into the channel. This kind of channel is best used for simple transactions. Let's use the analogy of a phone order.
 
 Create a basic channel
 ```clj
 (def bufferless-chan (chan))
-
+```
+eval
+```clj
 (put!
- bufferless-chan channel
- "Futo Maki" order
+ bufferless-chan ; channel
+ "Futo Maki" ; order
  #(prn (str "order put? " %))) ; callback
-;;=> true <- pending put
-
+ ```
+=>
+```
+true
+```
+eval:
+```clj
 (put!
- bufferless-chan channel
- "Vegan Spider" order
+ bufferless-chan ; channel
+ "Vegan Spider" ; order
  #(prn (str "order put? " %))) ; callback
-;;=> true <- pending put
-
+ ```
+=>
+```
+true
+```
+eval:
+```clj
 (take!
   bufferless-chan channel
   #(prn (str "order taken: " %))) ; callback
 ```
-take 1) =>
+=>
 ```
 "order taken: Futo Maki"
 "order put? true"
 nil
 ```
-take 2) =>
+=>
 ```
 "order taken: Vegan Spider"
 "order put? true"
 nil
 ```
-take 3) =>
+=>
 ```
-nil <- pending take
+nil
 ```
-eval put! function again =>
+eval put! function again
+=>
 ```
 "order put? true"
 "order taken: Vegan Spider"
@@ -162,52 +173,62 @@ true
 
 Notice the organization of the callback logs for our orders. Let's dig into the source for `put!` and `take!` to see what's going on here:
 
+---
+
+### Docs:
+
 ```clj
 (source put!)
-(comment
-  (defn put!
-    "Asynchronously puts a `val` into `port`, calling `fn1` (if supplied) when complete. `nil` values are not allowed. Will throw if closed. If `on-caller?` (default `true`) is `true`, and the put is immediately accepted, will call `fn1` on calling thread.  Returns `nil`."
-    ([port val
-       (if-let [ret (impl/put! port val fhnop)]
-         @ret
-         true)])
-    ([port val fn1] (put! port val fn1 true))
-    ([port val fn1 on-caller?
-       (if-let [retb (impl/put! port val (fn-handler fn1))]
-         (let [ret @retb]
-           (if on-caller?
-             (fn1 ret)
-             (dispatch/run #(fn1 ret)))
-           ret)
-         true)])))
 ```
 ```clj
-(source take!)
-(comment
- (defn take!
-   "Asynchronously takes a `val` from `port`, passing to `fn1`. Will pass `nil` if closed. If `on-caller?` (default `true`) is `true`, and value is immediately available, will call `fn1` on calling thread. Returns `nil.`"
-   ([port fn1] (take! port fn1 true))
-   ([port fn1 on-caller?
-      (let [ret (impl/take! port (fn-handler fn1))]
-        (when ret
-          (let [val @ret]
-            (if on-caller?
-              (fn1 val)
-              (dispatch/run #(fn1 val)))))
-        nil)])))
+(defn put!
+  "Asynchronously puts a `val` into `port`, calling `fn1` (if supplied) when complete. `nil` values are not allowed. Will throw if closed. If `on-caller?` (default `true`) is `true`, and the put is immediately accepted, will call `fn1` on calling thread.  Returns `nil`."
+  ([port val
+     (if-let [ret (impl/put! port val fhnop)]
+       @ret
+       true)])
+  ([port val fn1] (put! port val fn1 true))
+  ([port val fn1 on-caller?
+     (if-let [retb (impl/put! port val (fn-handler fn1))]
+       (let [ret @retb]
+         (if on-caller?
+           (fn1 ret)
+           (dispatch/run #(fn1 ret)))
+         ret)
+       true)]))
 ```
+
+```clj
+(source take!)
+```
+```clj
+(defn take!
+ "Asynchronously takes a `val` from `port`, passing to `fn1`. Will pass `nil` if closed. If `on-caller?` (default `true`) is `true`, and value is immediately available, will call `fn1` on calling thread. Returns `nil.`"
+ ([port fn1] (take! port fn1 true))
+ ([port fn1 on-caller?
+    (let [ret (impl/take! port (fn-handler fn1))]
+      (when ret
+        (let [val @ret]
+          (if on-caller?
+            (fn1 val)
+            (dispatch/run #(fn1 val)))))
+      nil)]))
+```
+
+---
 
 The same callback behavior is present in both async operations. If `on-caller?` (default `true`) is `true`, and value is immediately accepted (for put!) or available (for take!), will call `fn1` on calling thread.
 
-When a `put!` is matched with a pending `take!` (customer calls -> cook answers phone) , the `take!` callback is triggered first ("Thanks for calling Conveyor Sushi! May I take your order?" -> the order is conveyed) and `nil` is returned (confirming the order went through on `take!`).  Conversely - when a `take!` is met with a pending `put!`,  the `put!` callback is triggered first (the cook calls customer -> customer answers phone "Hello?" -> the order is conveyed) and `true` is returned (confirming the order went through on `put!`).
+When a `put!` is matched with a pending `take!` (customer calls -> cook answers phone) , the `take!` callback is triggered first ("Thanks for calling Conveyor Sushi! May I take your order?" -> the order is conveyed) and `nil` is returned (confirming the order went through on `take!`).  Conversely - when a `take!` is met with a pending `put!`,  the `put!` callback is triggered first (the cook calls customer -> customer answers phone "Hello?" -> the order is conveyed) and `true` is returned (confirming the order went through on `put!`). Only one order is conveyed at a time. Everyone else has to wait.
+
+
+![waiting](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/waiting-phone.gif)
 
 This explains the callback behavior of our puts and takes above. If we want to change the behavior of these callbacks, we can set the `on-caller` parameter to `false`.
 
 Now that we know how/when these callbacks are triggered, let's create some convenience utilities to abstract them away. We'll use these throughout the remainder of our examples.
 
-
 ## Orders Utils
-
 
 Create some logging callbacks to include with our put and take operations:
 
@@ -217,8 +238,9 @@ Create some logging callbacks to include with our put and take operations:
 
 (defn put-logger [boolean]
   (prn (str "order put? " boolean)))
-
+```
 Then we'll create shortcut put and take functions which are given a channel and the logging callback
+```clj
 (defn put!-order [channel order]
   (put! channel order put-logger))
 
@@ -226,43 +248,67 @@ Then we'll create shortcut put and take functions which are given a channel and 
   (take! channel take-logger))
 ```
 
-
 ## Robo Orders Overflow
+
+What happens if we got one of those infamous robo-dialers, just spamming away at the phone line trying to sell us timeshares? Well, with our simple `chan` our line would overflow.
 
 ```clj
 (def bufferless-chan (chan))
 ```
-What happens if we got one of those infamous robo-dialers, just spamming away at the phone line trying to sell us timeshares? Well, with our simple `chan` our line would overflow.
+
 ```clj
 (defn bot-orders [channel order]
   (dotimes [x 1030]
     (put!-order channel order)))
-
+```
+eval
+```clj
 (bot-orders bufferless-chan "Sushi!")
 ```
+=>
 ```
-;;=> Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
+Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
 ```
+
+Let's take a look at another slide about the channel anatomy from Rich Hickey's [presentation](https://vimeo.com/100518968), which focuses on the inner workings of the `core.async` channel implementation details:
+
+![anatomy](https://github.com/matthiasn/talk-transcripts/raw/master/Hickey_Rich/ImplementationDetails/00.06.23.jpg)
+
+You see three little tables in there:
+1) A `puts` handlers' queue with corresponding `data`
+2) An optional `buffer` of `data`
+3) A `takes` handlers' queue
+
+Up until now, we've been using a bufferless channel, so all of our put operations have been lined up "outside" our channel - table (1) - waiting to be conveyed by takers on the other side.
 
 The creators of `core.async` thought it prudent (and it seems reasonable to me) for channels to be limited in how many pending put/take operations are allowed to be queued (max = 1024 pending operations). So, how might we deal with this kind of traffic? One way is with a buffered channel.
 
+# Buffers
+
+![buffering](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/buffered-conveyor.gif)
 
 ## Robo Orders with a Fixed Buffer
 
+---
+### Docs:
+
 ```clj
 (source buffer)
-(comment
-  (defn buffer
-    "Returns a fixed buffer of size `n`. When full, puts will block/park."
-    [n]
-    (buffers/fixed-buffer n)))
 ```
+```clj
+(defn buffer
+  "Returns a fixed buffer of size `n`. When full, puts will block/park."
+  [n]
+  (buffers/fixed-buffer n))
+```
+
+---
 
 There are two ways to create a channel with a fixed buffer. One is by explicitly using the `buffer` funcction. The other is just to pass an integer as an argument to a basic channel like so:
 ```clj
 (def fixed-chan (chan 10)) buffer = 10 values
 ```
-eval at will
+eval at will:
 ```clj
 (bot-orders fixed-chan "Sushi!")
 ```
@@ -309,10 +355,12 @@ So we can keep track of what's going on with the channel in the following exampl
 refresh (re-eval) our fixed-chan
 ```clj
 (def fixed-chan (chan 10)) ; buffer = 10 put values
-
+```
+eval:
+```clj
 (IHOS-orders fixed-chan "Nigiri!")
 ```
-;;=>
+=>
 ```
 "order put? true"
 "order put? true"
@@ -333,7 +381,7 @@ Error: Assert failed: No more than 1024 pending puts are allowed on a single cha
 ```clj
 (take!-order fixed-chan)
 ```
-;=>
+=>
 ```
 "order taken: #: 0 order: Nigiri!"
 "order put? true"
@@ -350,25 +398,35 @@ What might we do now? Well, if we didn't want to lose any orders, we could incre
 
 "Windowed" buffers serve as contracts or policies for how you handle incoming data. In our case, dropping orders may not seem the best policy, but lets entertain what happens when we do. First, let's use a `sliding-buffer`, which drops the oldest puts:
 
+---
+
+### Docs:
 ```clj
 (source sliding-buffer)
-(comment
-  (defn sliding-buffer)
+```
+```clj
+(defn sliding-buffer)
   "Returns a `buffer` of size `n`. When full, puts will complete, and be buffered, but oldest elements in buffer will be dropped (not transferred)."
   [n]
-  (buffers/sliding-buffer n))
+  (buffers/sliding-buffer n)
+```
+---
 
+```clj
 (def slide-chan (chan (sliding-buffer 10))) buffer = 10 put values
 ```
 Warning: Big log (and I don't mean the song by Robert Plant. That would be cool though....) ahead!
+
 ```clj
 (IHOS-orders slide-chan "Sashimi")
 ```
+=>
 ```
 "order put? true"
 "order put? true"
 ... **2088 more**
 ```
+eval:
 ```clj
 (take!-order slide-chan)
 ```
@@ -388,34 +446,47 @@ take 10) =>
 "order taken: #: 2099 order: Nigiri!"
 nil
 ```
-take 11) =>  nil
-
+take 11) =>  
+```
+nil
+```
 *Note: The reason we got 2099 instead of 2100 is due to the index starting at 0*
 
 Now, we don't get that pesky error thrown, we have the last 10 orders, which were stored in the `sliding-buffer`, **but** all the other orders are thrown away. In some cases, this may be what you want. E.g., for streams of data where the latest/newest values are the important ones. Say we have a display in each of our restaurants showing the latest sushi orders, so as to give dine-in patrons that "I want what they're having" syndrome.
 
 A different policy we might want to build into our incoming data source is to drop the latest data upon meeting some threshold. We can do that with a `dropping-buffer`.
 
-
 ## Handling Traffic with a `dropping-buffer` (Drop Latest Puts)
+
+---
+
+### Docs:
 
 ```clj
 (source dropping-buffer)
-(comment
-  (defn dropping-buffer
-    "Returns a buffer of size `n`. When full, puts will complete but val will be dropped (no transfer)."
-    [n]
-    (buffers/dropping-buffer n)))
+```
+```clj
+(defn dropping-buffer
+  "Returns a buffer of size `n`. When full, puts will complete but val will be dropped (no transfer)."
+  [n]
+  (buffers/dropping-buffer n))
+```
 
+---
+```clj
 (def drop-chan (chan (dropping-buffer 10)))
-
+```
+eval:
+```clj
 (IHOS-orders drop-chan "Tofu Katsu")
 ```
+=>
 ```
 "order put? true"
 "order put? true"
 ... **2088 more**
 ```
+eval:
 ```clj
 (take!-order drop-chan)
 ```
@@ -441,6 +512,10 @@ For our sushi restaurant, this is like having a special bar section called "The 
 While this works for The Roulette Room, this just won't do for our ordering system. We don't want to drop any orders (that would be rude‡, not to mention bad for business). So, how might we accommodate our deluge of orders without dropping any?
 
 *‡ There are 16 words for "rude" in Japanese*
+
+# Backpressure
+
+![Backpressure](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/buffered-sushi-transducer.gif)
 
 
 ## Burst Orders with (`go`) Backpressure Upstream (`>!`) and Async Downstream (`take!`)
@@ -501,7 +576,7 @@ Buffers with backpressure not only allow you handle large data feeds, they also 
 
 (backpressured-orders burst-chan "Umami Tamago")
 ```
-;;=>
+eval =>
 ```
 "order put? true"
 "order put? true"
@@ -540,23 +615,35 @@ Elaboration: Backpressure prevents putting operations from getting registered to
 
 ## Burst Orders with Backpressure Upstream (`>!`), "Parking" Downstream (`<!`)
 
+---
 
-We get an immaterial difference when using "blocking" syntax downstream
+### Docs:
+
 ```clj
 (source <!)
-(comment
-  (defn <!
-    "takes a val from `port`. Must be called inside a `(go ...)` block. Will return nil if closed. Will park if nothing is available. Returns `true` unless port is already closed"
-    [port]
-    (throw (js/Error. "<! used not in (go ...) block"))))
+```
+```clj
+(defn <!
+  "takes a val from `port`. Must be called inside a `(go ...)` block. Will return nil if closed. Will park if nothing is available. Returns `true` unless port is already closed"
+  [port]
+  (throw (js/Error. "<! used not in (go ...) block")))
+```
 
+---
+
+
+```clj
 (def burst-chan (chan 50))
 
 (defn burst-<! [channel]
   (go
     (dotimes [x 50] increase number of bot orders
       (take-logger (<! channel)))))
+```
 
+We get an immaterial difference when using "blocking" syntax downstream:
+
+```clj
 (backpressured-orders burst-chan "Umami Tamago")
 ```
 same as before
@@ -579,9 +666,11 @@ Old faithful:
 ```
 Error: Assert failed: No more than 1024 pending puts are allowed on a single channel. Consider using a windowed buffer. (< (.-length puts) impl/MAX-QUEUE-SIZE)
 ```
+eval:
 ```clj
 (burst-<! burst-chan)
 ```
+=>
 ```
 No bueno
 ```
@@ -595,19 +684,26 @@ Now that we know how to handle deluges of upstream data (i.e., from puts) and ha
 
 ## Shutdown Orders with `close!`
 
+---
+
+### Docs:
 
 ```clj
 (source close!)
-(comment
- (defn close!
+```
+```clj
+(defn close!
    "Closes a channel. The channel will no longer accept any puts (they will be ignored). Data in the channel remains available for taking, until exhausted, after which takes will return nil. If there are any pending takes, they will be dispatched with nil. Closing a closed channel is a no-op. Returns nil. Logically closing happens after all puts have been delivered. Therefore, any blocked or parked puts will remain blocked/parked until a taker releases them."
    ([port]
-    (impl/close! port))))
+    (impl/close! port)))
 ```
+
+---
 
 The `close!` function provides a way to shut a channel down from the "outside". By passing a channel into the `close!` function, all following puts will be rejected (returning false), but any values in a buffer will be available for taking as well as any parked or pending puts sent to the channel before `close!`.
 
 Let's first send in some puts to a channel with a small buffer of a sufficient quantity, which will convey orders into the buffer as well as queue up some pending puts for the channel.
+
 ```clj
 (defn max-order [channel order]
   (go
@@ -620,10 +716,12 @@ Let's first send in some puts to a channel with a small buffer of a sufficient q
 (defn take!-til-closed [channel]
   (dotimes [x 5]
     (take!-order channel)))
-
+```
+eval:
+```clj
 (max-order capacity "Wildcard")
 ```
-;;=>
+=>
 ```
 "order put? true"
 "order put? true"
@@ -631,6 +729,7 @@ Let's first send in some puts to a channel with a small buffer of a sufficient q
 "order put? true"
 "order put? true"
 ```
+eval:
 ```clj
 (take!-til-closed capacity)
 ```
@@ -681,30 +780,38 @@ One of the most important control structures in `core.async`: `alts!`
 
 > Alt is actually the tricky operation. Almost everything that's built into this channel implementation is there to support alt because alt is the hard part. - [RH](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/ImplementationDetails.md)
 
+---
+
+### Docs:
+
 ```clj
 (source alts!)
-(comment
-  (defn alts!
-    "Completes at most one of several channel operations. Must be called inside a `(go ...) block`. `ports` is a vector of channel endpoints, which can be either a channel to take from or a vector of `[channel-to-put-to val-to-put]`, in any combination. Takes will be made as if by `<!`, and puts will be made as if by `>!`. Unless the `:priority` option is `true`, if more than one port operation is ready a non-deterministic choice will be made. If no operation is ready and a `:default` value is supplied, `[default-val :default]` will be returned, otherwise `alts!` will park until the first operation to become ready completes. Returns `[val port]` of the completed operation, where `val` is the value taken for takes, and a boolean (`true` unless already closed, as per `put!`) for puts.
+```
+```clj
+(defn alts!
+  "Completes at most one of several channel operations. Must be called inside a `(go ...) block`. `ports` is a vector of channel endpoints, which can be either a channel to take from or a vector of `[channel-to-put-to val-to-put]`, in any combination. Takes will be made as if by `<!`, and puts will be made as if by `>!`. Unless the `:priority` option is `true`, if more than one port operation is ready a non-deterministic choice will be made. If no operation is ready and a `:default` value is supplied, `[default-val :default]` will be returned, otherwise `alts!` will park until the first operation to become ready completes. Returns `[val port]` of the completed operation, where `val` is the value taken for takes, and a boolean (`true` unless already closed, as per `put!`) for puts.
 
-    Supported options: (`opts` are passed as `:key val`)
+  Supported options: (`opts` are passed as `:key val`)
 
-    `:default val` - the value to use if none of the operations are immediately ready
-    `:priority true` - (default nil) when `true`, the operations will be tried in order.
+  `:default val` - the value to use if none of the operations are immediately ready
+  `:priority true` - (default nil) when `true`, the operations will be tried in order.
 
-    Note: there is no guarantee that the port exps or val exprs will be used, nor in what order should they be, so they should not be depended upon for side effects."
+  Note: there is no guarantee that the port exps or val exprs will be used, nor in what order should they be, so they should not be depended upon for side effects."
 
-    [ports & {:as opts}]
-    (throw (js/Error. "alts! used not in (go ...) block"))))
+  [ports & {:as opts}]
+  (throw (js/Error. "alts! used not in (go ...) block")))
 ```
 ```clj
 (source timeout)
-(comment
-  (defn timeout
-    "Returns a channel that will close after msecs"
-    [msecs]
-    (timers/timeout msecs)))
 ```
+```clj
+(defn timeout
+  "Returns a channel that will close after msecs"
+  [msecs]
+  (timers/timeout msecs))
+```
+
+---
 
 Let's make our example a little more interesting. Say we have three bars at each of our sushi restaurants, each taking orders in (simultaneously!) at different intervals (some are more popular than others). Let's also say that our restaurant stops taking orders after 3000 milliseconds of operation time ("Fastest Sushi on the Planet"™).
 
@@ -725,9 +832,12 @@ Let's make our example a little more interesting. Say we have three bars at each
 
 (def capacity (chan 5))
 
+```
+eval:
+```clj
 (timeout-chan capacity)
 ```
-;;=>
+=>
 ```
 Order up: Online Order
 Order up: Roulette Room
@@ -748,7 +858,7 @@ But more importantly...
 
 # We just spun up three. independent. synchronous. threads. Yeah, we just did that in three lines of code.
 
-This is not a section. I just thought an H1 was apropos.
+This is not a section. I just thought big letters were apropos.
 
 Now we can drain the pending orders from the buffer and let our cooks get to more important things... Yamazaki.
 
