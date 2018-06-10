@@ -50,7 +50,7 @@ Convenience utilities (you'll want these handy at the top of the file for later,
 
 Channels are the backbone of `core.async`. As in Clojure(Script), immutable data collections are the backbone, channels can be thought of as a special kind of data collection. A channel is similar in some ways to a vector (or an array in JavaScript). Like vectors, channels are collections that take values from one end (upstream) and discharge them from the other (downstream). However, unlike vectors (or arrays), channels *only convey one value at a time* (asynchronous).
 
-In my mind, I see a vector as a two-dimensional box, who's contents stretch the box along its x-axis. Whereas, with a queue (channel), its a three-dimensional box with new values stretching the box along the z axis (time). However, unlike vectors (or even Rx/observable streams)`core.async` channels can not only contain values within its "box" (buffer), they can make operations seeking to put to or take from the queue wait in a line - outside the box - along that z-axis without the developer having to use callbacks to line them up! This provides a huge convenience for asynchronous programming. As we'll see in the following examples, these features of `core.async` abstract away the complexity of callbacks, allowing you to write asynchronous programs in a blissfully synchronous fashion.
+In my mind, I see a vector as a two-dimensional box, who's contents (existing synchronously) stretch the box along its x-axis. Whereas, with a queue (channel), its a three-dimensional box with new values stretching the box along the z axis (asynchronously over time). However, unlike vectors (or even Rx/observable streams)`core.async` channels can not only contain values within its "box" (buffer), they can make operations seeking to put to or take from the channel wait in a line - outside the box in a queue - along that z-axis without the developer having to use callbacks to line them up! This provides a huge convenience for asynchronous programming. As we'll see in the following examples, these features of `core.async` abstract away the complexity of callbacks, allowing you to write asynchronous programs in a blissfully synchronous fashion.
 
 Don't get me wrong. This bliss comes at a cost. There's a non-trivial learning curve involved. But I hope, after going through - and importantly running - the examples herein, you'll have the fundamentals to prepare you and get you excited to use them.
 
@@ -79,6 +79,10 @@ Enough talk. Let's start.
 # Channel Operations 101
 
 For these examples, we'll use an analogy to help explain things. Let's say we're operating a sushi bar and we're starting small, just to handle taking some orders from customers...
+
+## Code Example Repo:
+
+You can find all the code for the working examples in [this repo](https://github.com/loganpowell/cljs-guides/blob/master/src/core-async/core.cljs).
 
 ## One-time Async Orders on a `chan` with `put!` and `take!`
 
