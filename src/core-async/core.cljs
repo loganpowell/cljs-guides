@@ -332,6 +332,21 @@
     [port val]
     (throw (js/Error. ">! used not in (go ...) block"))))
 
+; ===============================
+; `go` caveat (stops translation at fn boundaries)
+
+(comment
+  (defn >!-order [channel order count]
+    (put-logger (>! channel (str "#: " count " order: " order))))
+
+  (defn backpressured-orders [channel order]
+    (go
+      (dotimes [x 2100] ; increase number of bot orders
+        (>!-order channel order x)))))
+
+; => Error: >! used not in (go ...) block
+; ===============================
+
 (defn backpressured-orders [channel order]
   (go
     (dotimes [x 2100] ; increase number of bot orders

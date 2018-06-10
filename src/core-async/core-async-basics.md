@@ -638,6 +638,26 @@ What allowed us to queue up the remaining pending orders (after our buffer 50 fi
 
 Elaboration: Backpressure prevents putting operations from getting registered to the handlers' queue in the channel. Instead of using the channel's puts queue, the "blocking" `(go...)` creates a state machine that keeps track of the state of the `dotimes` function (in this case) and effectively pauses it when there's no availability for puts in the channel. This allows upstream "producers" of data to govern their rate of production according to the capacity the consumers downstream.
 
+## `go` Block Caveats
+
+It's important to note that the [`go` macro stops translating at function creation boundaries](https://github.com/clojure/core.async/wiki/Go-Block-Best-Practices). So, for example, if we were to use this code instead of our other `backpressured-orders` function above...
+
+```clj
+
+(defn >!-order [channel order count]
+  (put-logger (>! channel (str "#: " count " order: " order))))
+
+(defn backpressured-orders [channel order]
+  (go
+    (dotimes [x 2100] ; increase number of bot orders
+      (>!-order channel order x))))
+```
+We would get the error:
+```
+...Error: >! used not in (go ...) block ...
+```
+
+Learn more in the [Best Practices Guide](https://github.com/clojure/core.async/wiki/Go-Block-Best-Practices) by Alex Miller.
 
 ## Burst Orders with Backpressure Upstream (`>!`), "Parking" Downstream (`<!`)
 
