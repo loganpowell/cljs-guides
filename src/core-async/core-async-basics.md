@@ -6,9 +6,7 @@ tags: ['cljs', 'core-async', 'clojurescript', 'go', 'chan']
 license: 'public-domain'
 ---
 
-# `core.async` and a Sushi Bar. A Love Story.
-
-![love story](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/conveyor-sushi-front-page.gif)
+# `core.async` Basics.
 
 ## Dependencies
 
@@ -48,7 +46,7 @@ Convenience utilities (you'll want these handy at the top of the file for later,
 
 # Introduction
 
-Channels are the backbone of `core.async`. As in Clojure(Script), immutable data collections are the backbone, channels can be thought of as a special kind of data collection. A channel is similar in some ways to a vector (or an array in JavaScript). Like vectors, channels are collections that take values from one end (upstream) and discharge them from the other (downstream). However, unlike vectors (or arrays), channels *only convey one value at a time* (asynchronous).
+Channels are the backbone of `core.async`. As in Clojure(Script), immutable data collections are the backbone, channels can be thought of as a special kind of data collection. A channel is similar in some ways to a vector (or an array in JavaScript). Like vectors, channels are collections that take values from one end (upstream) and discharge them from the other (downstream). This is also known as "first in, first out" (fifo) processing. However, unlike vectors (or arrays), channels *only convey one value at a time* (asynchronous).
 
 In my mind, I see a vector as a two-dimensional box, who's contents (existing synchronously) stretch the box along its x-axis. Whereas, with a queue (channel), its a three-dimensional box with new values stretching the box along the z axis (asynchronously over time). However, unlike vectors (or even Rx/observable streams)`core.async` channels can not only contain values within its "box" (buffer), they can make operations seeking to put to or take from the channel wait in a line - outside the box in a queue - along that z-axis without the developer having to use callbacks to line them up! This provides a huge convenience for asynchronous programming. As we'll see in the following examples, these features of `core.async` abstract away the complexity of callbacks, allowing you to write asynchronous programs in a blissfully synchronous fashion.
 
@@ -77,6 +75,8 @@ Very roughly speaking - anything that has "blocking" semantics in `clojure.core.
 Enough talk. Let's start.
 
 # Channel Operations 101
+
+![love story](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/conveyor-sushi-front-page.gif)
 
 For these examples, we'll use an analogy to help explain things. Let's say we're operating a sushi bar and we're starting small, just to handle taking some orders from customers...
 
@@ -416,7 +416,7 @@ What might we do now? One thing we could do is to use a "windowed buffer", which
 ---
 
 
-"Windowed" buffers serve as contracts or policies for how you handle incoming data. In our case, dropping orders may not seem the best policy, but lets entertain what happens when we do. First, let's use a `sliding-buffer`, which drops the oldest puts:
+"Windowed" buffers serve as contracts or policies for how you handle incoming data. These can be handy in a number of scenarios (e.g., for rate limiting). Let's show a couple examples of how we might use a windowed buffer. First, let's use a `sliding-buffer`, which drops the oldest puts:
 
 
 ```clj
