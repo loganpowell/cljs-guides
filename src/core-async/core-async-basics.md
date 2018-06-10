@@ -311,7 +311,7 @@ The creators of `core.async` thought it prudent (and it seems reasonable to me) 
 
 There are two ways to create a channel with a fixed buffer. One is by explicitly using the `buffer` funcction. The other is just to pass an integer as an argument to a basic channel like so:
 ```clj
-(def fixed-chan (chan 10)) buffer = 10 values
+(def fixed-chan (chan 10)) ; buffer = 10 values
 ```
 eval at will:
 ```clj
@@ -420,7 +420,7 @@ What might we do now? One thing we could do is to use a "windowed buffer", which
 
 
 ```clj
-(def slide-chan (chan (sliding-buffer 10))) buffer = 10 put values
+(def slide-chan (chan (sliding-buffer 10))) ; buffer = 10 put values
 ```
 Warning: Big log (and I don't mean the song by Robert Plant. That would be cool though....) ahead!
 
@@ -585,7 +585,7 @@ Notice that the "parking" put function (`>!`) doesn't have a callback argument (
 ```clj
 (defn backpressured-orders [channel order]
   (go
-    (dotimes [x 2100] increase number of bot orders
+    (dotimes [x 2100] ; increase number of bot orders
       (put-logger (>! channel (str "#: " x " order: " order))))))
 
 (def burst-chan (chan 50))
@@ -595,7 +595,7 @@ Buffers with backpressure not only allow you handle large data feeds, they also 
 
 ```clj
 (defn burst-take! [channel]
-  (dotimes [x 50] increase number of bot orders
+  (dotimes [x 50] ; take 50 orders at a time
     (take!-order channel)))
 ```
 eval:
@@ -664,7 +664,7 @@ Elaboration: Backpressure prevents putting operations from getting registered to
 
 (defn burst-<! [channel]
   (go
-    (dotimes [x 50] increase number of bot orders
+    (dotimes [x 50]
       (take-logger (<! channel)))))
 ```
 
@@ -855,7 +855,7 @@ Let's make our example a little more interesting. Say we have three bars at each
         (cond
           (= ch closer) (do
                           (close! channel)
-                          (.log js/console (str "No more orders. Domo arigatogozaimashita.")))
+                          (.log js/console (str "No more orders. Domo Arigatogozaimashita.")))
           :else
           (recur (.log js/console (str "Order up: " (<! channel)))))))))
 
