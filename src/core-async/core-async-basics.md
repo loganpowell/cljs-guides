@@ -686,7 +686,9 @@ same as before
 However, if we were to reverse the backpressure, i.e., use the asynchronous putting syntax (`put!`) upstream with the "parking" take syntax (`<!`) downstream...
 ```clj
 (def burst-chan (chan 50))
-
+```
+eval:
+```clj
 (IHOS-orders burst-chan "Miso Soup!")
 ```
 Old faithful:
