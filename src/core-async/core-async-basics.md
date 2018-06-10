@@ -6,7 +6,7 @@ tags: ['cljs', 'core-async', 'clojurescript', 'go', 'chan']
 license: 'public-domain'
 ---
 
-# `core.async` Basics.
+# `core.async` 101
 
 ## Dependencies
 
@@ -17,10 +17,9 @@ license: 'public-domain'
   (:use [clojure.repl :only (source)]))
 ```
 
-Convenience utilities (you'll want these handy at the top of the file for later, but we'll get to them then)
-
 ## Orders Utils
 
+Convenience utilities (you'll want these handy at the top of the file for later, but we'll get to them then)
 
 ```clj
 (defn take-logger [order]
@@ -74,7 +73,7 @@ Very roughly speaking - anything that has "blocking" semantics in `clojure.core.
 
 Enough talk. Let's start.
 
-# Channel Operations 101
+# Channel Operations Basics
 
 ![love story](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/conveyor-sushi-front-page.gif)
 
@@ -131,7 +130,7 @@ eval
  "Futo Maki" ; order (data)
  #(prn (str "order put? " %))) ; put! callback
  ```
-=>
+put 1) =>
 ```
 true
 ```
@@ -142,7 +141,7 @@ eval:
  "Vegan Spider"
  #(prn (str "order put? " %)))
  ```
-=>
+put 2) =>
 ```
 true
 ```
@@ -152,24 +151,23 @@ eval:
   bufferless-chan
   #(prn (str "order taken: " %))) ; take! callback
 ```
-=>
+take 1) =>
 ```
 "order taken: Futo Maki"
 "order put? true"
 nil
 ```
-=>
+take 2) =>
 ```
 "order taken: Vegan Spider"
 "order put? true"
 nil
 ```
-=>
+take 3) =>
 ```
 nil
 ```
-eval put! function again
-=>
+eval put! function again - put 3) =>
 ```
 "order put? true"
 "order taken: Vegan Spider"
@@ -309,7 +307,7 @@ The creators of `core.async` thought it prudent (and it seems reasonable to me) 
 
 ---
 
-There are two ways to create a channel with a fixed buffer. One is by explicitly using the `buffer` funcction. The other is just to pass an integer as an argument to a basic channel like so:
+There are two ways to create a channel with a fixed buffer. One is by explicitly using the `buffer` function. The other is just to pass an integer as an argument to a basic channel like so:
 ```clj
 (def fixed-chan (chan 10)) ; buffer = 10 values
 ```
@@ -325,7 +323,7 @@ eval at will:
 nil
 ```
 
-We can see that 10 of our puts were immediately accepted by the channel (causing their callbacks to be fired immediately here), while the rest will have to wait in the puts queue for future (async) takes. We were able to do this in this specific case because we received 1030 order and had a buffer that stored 10 values, allowing those 10 puts to be handled and commpleted (1030 puts - 10 puts consumed by buffer = 1020 pending puts =< 1024 max.).
+We can see that 10 of our puts were immediately accepted by the channel (causing their callbacks to be fired immediately here), while the rest will have to wait in the puts queue for future (async) takes. We were able to do this in this specific case because we received 1030 order and had a buffer that stored 10 values, allowing those 10 puts to be handled and completed (1030 puts - 10 puts consumed by buffer = 1020 pending puts < 1024 max.).
 
 You can think of a fixed buffer like a voicemail service for our sushi orders. Or - if you prefer - an online ordering system that saves orders (in this case with a storage capacity of 10 orders). Instead of forcing all customers to wait until there's a match on the other side, a buffer allows the first 10 orders to be stored "inside" the channel. This would allow those first 10 customers to put in their order and get back to their lives. Those lucky bastards.
 
@@ -384,6 +382,7 @@ Error: Assert failed: No more than 1024 pending puts are allowed on a single cha
 
 物の哀れ What's happened is we've hit the limit of pending operations to our channel minus the capacity of our buffer (2100 puts - 10 buffer = 2090 pending puts > 1024 max.).
 
+eval:
 ```clj
 (take!-order fixed-chan)
 ```
@@ -394,7 +393,7 @@ Error: Assert failed: No more than 1024 pending puts are allowed on a single cha
 ...
 ```
 
-Ok, so we can get to first 10 of the orders in the buffer and the others that didn't overflow the pending puts queue, but - with the rest - we're in the same tsukemono (Japanese pickle) we were before. Our charming little inbox, which may have served us fine before becoming the biggest sushi chain on the planet, is full **and we get an error thrown**, which may create havoc in our system.
+Ok, so we can get to first 10 of the orders in the buffer and the others that didn't overflow the pending puts queue, but - with the rest - we're in the same tsukemono (pickle) we were before. Our charming little inbox, which may have served us fine before becoming the biggest sushi chain on the planet, is full **and we get an error thrown**, which may create havoc in our system.
 
 What might we do now? One thing we could do is to use a "windowed buffer", which will drop some of the orders. There are two types of windowed buffers: a `sliding-buffer` and a `dropping-buffer`.
 
@@ -631,13 +630,13 @@ take 2) =>
 ... 48 more
 ```
 
-As you can see, upon evaluation of `backpressured-orders` we get 50 orders put into the fixed buffer. Then - with each evaluation of `burst-take!` - we get a set of 50 takes (exhausing the buffer) and 50 more puts, which fill up the buffer again.
+As you can see, upon evaluation of `backpressured-orders` we get 50 orders put into the fixed buffer. Then - with each evaluation of `burst-take!` - we get a set of 50 takes (exhausting the buffer) and 50 more puts, which fill up the buffer again.
 
 Also notice, that we we're significantly over the queue limit on the other side of our buffer. However, we didn't get the `(MAX-QUEUE-SIZE)` Error as we did in the case using `put!`.
 
 What allowed us to queue up the remaining pending orders (after our buffer 50 filled up) - even though we're over the 1024 allowance for pending puts - is backpressure. By wraping our orders' puts in a `(go...)` block and changing the `put!` to its corresponding "parking" syntax (`>!`) we've spun up a thread (in JavaScript an ["Inversion of Control" state-machine](http://hueypetersen.com/posts/2013/08/02/the-state-machines-of-core-async/)) that conducts some "magic-callback-hell-behind-the-scenes" to register and keep track of the pending puts without overflowing the channel. In effect, we are able to postpone put operations that would cause the channel's queue to overflow and only convey those for which there are active takes and/or room in a buffer.
 
-Elaboration: Backpressure prevents putting operations from getting registered to the handlers' queu in the channel. Instead of using the channel's puts queu, the "blocking" `(go...)` creates a state machine that keeps track of the state of the `dotimes` function (in this case) and effectively pauses it when there's no availability for puts in the channel. This allows upstream "producers" of data to govern their rate of production according to the capacity the consumers downstream.
+Elaboration: Backpressure prevents putting operations from getting registered to the handlers' queue in the channel. Instead of using the channel's puts queue, the "blocking" `(go...)` creates a state machine that keeps track of the state of the `dotimes` function (in this case) and effectively pauses it when there's no availability for puts in the channel. This allows upstream "producers" of data to govern their rate of production according to the capacity the consumers downstream.
 
 
 ## Burst Orders with Backpressure Upstream (`>!`), "Parking" Downstream (`<!`)
@@ -799,7 +798,7 @@ After 12 puts, we closed the channel. Thus, 5 orders went into the fixed buffer 
 false
 ```
 
-This is a simple way of controling how many orders we are prepared to handle. For a fledgling sushi bar, this might be sufficient. Let's consider some more sophisticated ways of workign with channels.
+This is a simple way of controlling how many orders we are prepared to handle. For a fledgling sushi bar, this might be sufficient. Let's consider some more sophisticated ways of working with channels.
 
 
 ## Instituting a closing time with `alts!` and `timeout`
