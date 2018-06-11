@@ -1,7 +1,7 @@
 ---
 title: '`cljs.core.async` 101'
 created: '6-11-2018'
-canonicalUrl: 'https://github.com/loganpowell/cljs-guides/blob/master/src/core-async/core-async-basics.md'
+canonicalUrl: 'https://github.com/loganpowell/cljs-guides/blob/master/src/guides/core-async-basics.md'
 tags: ['cljs', 'core-async', 'clojurescript', 'csp', 'javascript']
 license: 'public-domain'
 ---

@@ -333,10 +333,10 @@
     (throw (js/Error. ">! used not in (go ...) block"))))
 
 ; ===============================
-; `go` caveat (stops translation at fn boundaries)
+; `go` caveat (stops translation at fn boundaries/closures)
 
 (comment
-  (defn >!-order [channel order count]
+  (defn >!-order [channel order count] ; = (def (fn ...))
     (put-logger (>! channel (str "#: " count " order: " order))))
 
   (defn backpressured-orders [channel order]
