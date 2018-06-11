@@ -1,12 +1,19 @@
----
+<!-- ---
 title: '`cljs.core.async` 101'
 created: '6-11-2018'
 canonicalUrl: 'https://github.com/loganpowell/cljs-guides/blob/master/src/guides/core-async-basics.md'
 tags: ['cljs', 'core-async', 'clojurescript', 'csp', 'javascript']
 license: 'public-domain'
----
+--- -->
 
 # `cljs.core.async` 101
+
+#### *There comes a time in all good programs when components or subsystems must stop communicating directly to each other.*
+
+### *Conveyance must become first class*.
+-- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md)
+
+---
 
 ## Dependencies
 
@@ -16,15 +23,6 @@ license: 'public-domain'
              [cljs.core.async :refer-macros [go go-loop alt!]])
   (:use [clojure.repl :only (source)]))
 ```
-
----
-
-#### *There comes a time in all good programs when components or subsystems must stop communicating directly to each other.*
-
-### *Conveyance must become first class*.
--- [Rich Hickey: `core.async` début](https://github.com/matthiasn/talk-transcripts/blob/master/Hickey_Rich/CoreAsync.md)
-
----
 
 # Introduction
 
