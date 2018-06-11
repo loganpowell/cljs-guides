@@ -1,12 +1,12 @@
 ---
-title: '`cljs.core.async` Basics'
-created: '6-01-2018'
+title: '`cljs.core.async` 101'
+created: '6-11-2018'
 canonicalUrl: 'https://github.com/loganpowell/cljs-guides/blob/master/src/core-async/core-async-basics.md'
-tags: ['cljs', 'core-async', 'clojurescript', 'go', 'chan']
+tags: ['cljs', 'core-async', 'clojurescript', 'csp', 'javascript']
 license: 'public-domain'
 ---
 
-# `core.async` 101
+# `cljs.core.async` 101
 
 ## Dependencies
 
@@ -17,23 +17,6 @@ license: 'public-domain'
   (:use [clojure.repl :only (source)]))
 ```
 
-## Orders Utils
-
-Convenience utilities (you'll want these handy at the top of the file for later, but we'll get to them then)
-
-```clj
-(defn take-logger [order]
-  (prn (str "order taken: " order)))
-
-(defn put-logger [boolean]
-  (prn (str "order put? " boolean)))
-
-(defn put!-order [channel order]
-  (put! channel order put-logger))
-
-(defn take!-order [channel]
-  (take! channel take-logger))
-```
 ---
 
 #### *There comes a time in all good programs when components or subsystems must stop communicating directly to each other.*
@@ -47,7 +30,7 @@ Convenience utilities (you'll want these handy at the top of the file for later,
 
 Channels are the backbone of `core.async`. As in Clojure(Script), immutable data collections are the backbone, channels can be thought of as a special kind of data collection. A channel is similar in some ways to a vector (or an array in JavaScript). Like vectors, channels are collections that take values from one end (upstream) and discharge them from the other (downstream). This is also known as "first in, first out" (fifo) processing. However, unlike vectors (or arrays), channels *only convey one value at a time* (asynchronous).
 
-In my mind, I see a vector as a two-dimensional box, who's contents (existing synchronously) stretch the box along its x-axis. Whereas, with a queue (channel), its a three-dimensional box with new values stretching the box along the z axis (asynchronously over time). However, unlike vectors (or even Rx/observable streams)`core.async` channels can not only contain values within its "box" (buffer), they can make operations seeking to put to or take from the channel wait in a line - outside the box in a queue - along that z-axis without the developer having to use callbacks to line them up! This provides a huge convenience for asynchronous programming. As we'll see in the following examples, these features of `core.async` abstract away the complexity of callbacks, allowing you to write asynchronous programs in a blissfully synchronous fashion.
+In my mind, I see a vector as a two-dimensional box, who's contents (existing synchronously) stretch the box along its x-axis. Whereas, with a queue (channel), its a three-dimensional box with new values stretching the box along the z axis (asynchronously over time). However, unlike vectors, `core.async` channels can not only contain values within its "box" (buffer), they can make operations seeking to put to or take from the channel wait in a line - outside the box in a queue - along that z-axis without the developer having to use callbacks to line them up! This provides a huge convenience for asynchronous programming. As we'll see in the following examples, these features of `core.async` abstract away the complexity of callbacks, allowing you to write asynchronous programs in a blissfully synchronous fashion.
 
 Don't get me wrong. This bliss comes at a cost. There's a non-trivial learning curve involved. But I hope, after going through - and importantly running - the examples herein, you'll have the fundamentals to prepare you and get you excited to use them.
 
@@ -77,7 +60,7 @@ Enough talk. Let's start.
 
 ![love story](https://raw.githubusercontent.com/loganpowell/cljs-guides/master/src/assets/conveyor-sushi-front-page.gif)
 
-For these examples, we'll use an analogy to help explain things. Let's say we're operating a sushi bar and we're starting small, just to handle taking some orders from customers...
+For these examples, we'll use an analogy to help explain things. Let's say we're operating a sushi bar. To start, we'll use `core.async` just to handle taking some orders from customers...
 
 ## Code Example Repo:
 
@@ -167,7 +150,7 @@ take 3) =>
 ```
 nil
 ```
-eval put! function again - put 3) =>
+eval last put! function again - put 3) =>
 ```
 "order put? true"
 "order taken: Vegan Spider"
@@ -559,7 +542,7 @@ While this works for The Roulette Room, this just won't do for our ordering syst
 
 This is *where* the magic happens. `go` blocks provide an environment where we can escape callback hell. As [Stuart Halloway](https://twitter.com/stuarthalloway?ref_src=twsrc%5Egoogle%7Ctwcamp%5Eserp%7Ctwgr%5Eauthor) explains in his [great talk](https://www.infoq.com/presentations/core-async) about `core.async` (paraphrasing):
 
-`go` is a first class process abstraction (can be passed as a value to other processes) that will either use real threads (if available) or use "magic-callback-hell-behind-the-scenes-threads" giving users who don't have real threads to work with (i.e., ClojureScript/JavaScript users) the ability to write code as if they did. `go` uses a state-machine with "parking" to enable this.
+`go` is a first class process abstraction that will either use real threads (Java VM) or use "magic-callback-hell-behind-the-scenes-threads" (JavaScript VM) giving users who don't have real threads to work with (i.e., ClojureScript/JavaScript users) the ability to write code as if they did. `go` uses a state-machine with "blocking"/"parking" to enable this.
 
 **The way we pass work done within a `go` block to another part of our program (or vice-versa) is through channels.** and the way we put values into a channel when inside a go block is with the "parking" put syntax `>!`
 
@@ -579,7 +562,7 @@ This is *where* the magic happens. `go` blocks provide an environment where we c
 
 ---
 
-Notice that the "parking" put function (`>!`) doesn't have a callback argument (as does `put!`). Since `go` will allow us to write our asynchronous code in a synchronous style, we won't need them. Asynchronous callback communication between functions to convey data over time are a thing of the past and you can think of data flowing through the operations to/from channels withing a `go` block as being available synchronously. However, for illustrative purposes, we want our logs, so we have to move our `put-logger` outside the channel operation to get them.
+Notice that the "parking" put function (`>!`) doesn't have a callback argument (as does `put!`). Since `go` will allow us to write our asynchronous code in a synchronous style, we won't need them. Asynchronous callback communication between functions to convey data over time are a thing of the past and you can think of data flowing through the operations to/from channels within a `go` block as being available synchronously. However, for illustrative purposes, we want our logs, so we have to move our `put-logger` outside the channel operation to get them.
 
 ```clj
 (defn backpressured-orders [channel order]
@@ -634,7 +617,7 @@ As you can see, upon evaluation of `backpressured-orders` we get 50 orders put i
 
 Also notice, that we we're significantly over the queue limit on the other side of our buffer. However, we didn't get the `(MAX-QUEUE-SIZE)` Error as we did in the case using `put!`.
 
-What allowed us to queue up the remaining pending orders (after our buffer 50 filled up) - even though we're over the 1024 allowance for pending puts - is backpressure. By wraping our orders' puts in a `(go...)` block and changing the `put!` to its corresponding "parking" syntax (`>!`) we've spun up a thread (in JavaScript an ["Inversion of Control" state-machine](http://hueypetersen.com/posts/2013/08/02/the-state-machines-of-core-async/)) that conducts some "magic-callback-hell-behind-the-scenes" to register and keep track of the pending puts without overflowing the channel. In effect, we are able to postpone put operations that would cause the channel's queue to overflow and only convey those for which there are active takes and/or room in a buffer.
+What allowed us to queue up the remaining pending orders (after our buffer 50 filled up) - even though we're over the 1024 allowance for pending puts - is backpressure. By wrapping our orders' puts in a `(go...)` block and changing the `put!` to its corresponding "parking" syntax (`>!`) we've spun up a thread (in JavaScript an ["Inversion of Control" state-machine](http://hueypetersen.com/posts/2013/08/02/the-state-machines-of-core-async/)) that conducts some "magic-callback-hell-behind-the-scenes" to register and keep track of the pending puts without overflowing the channel. In effect, we are able to make put operations lazy, postponing their evaluation until there are matching takes and/or room in a buffer.
 
 Elaboration: Backpressure prevents putting operations from getting registered to the handlers' queue in the channel. Instead of using the channel's puts queue, the "blocking" `(go...)` creates a state machine that keeps track of the state of the `dotimes` function (in this case) and effectively pauses it when there's no availability for puts in the channel. This allows upstream "producers" of data to govern their rate of production according to the capacity the consumers downstream.
 
@@ -904,9 +887,11 @@ We used `timeout` above to terminate our process. It's important to note that wh
 
 But more importantly...
 
-# We just spun up three. independent. synchronous. threads. Yeah, we just did that in three lines of code.
+# We just spun up three. independent. synchronous. processes.
 
-This is not a section. I just thought big letters were apropos.
+##  Yeah, we just did that in three lines of code.
+
+> This is not a section. I just thought big letters were apropos.
 
 Now we can drain the pending orders from the buffer and let our cooks get to more important things... Yamazaki.
 
