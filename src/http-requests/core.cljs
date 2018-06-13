@@ -114,14 +114,42 @@
   (let [w (t/writer :json-verbose)]
     (t/write w transit)))
 
+(defn transit-handler-verbose-prn [response]
+  (->>
+    (transit->json-verbose response)
+    (prn)))
+
+(get-sushi :transit transit-handler-verbose-prn)
+;;=> "{\"pieces_of_sushi\":1}"
+
+; ===============================
+; Using use js/console.log to see actual stringified json
+; ===============================
+
+; must use js/console.log to get non stringified json
 (defn transit-handler-verbose [response]
   (->>
     (transit->json-verbose response)
     (js/console.log)))
 
-; get actual json!
+; get actual json in console (you can eveen add ):
 (get-sushi :transit transit-handler-verbose)
 ;;=> {"pieces_of_sushi":1}
+
+; ===============================
+; Using use js/JSON.parse to return a JS Object
+; ===============================
+
+; For JavaScript digestion, use JSON.parse for easy data access
+(defn transit-handler-verbose-obj [response]
+  (->>
+    (transit->json-verbose response)
+    (js/JSON.parse)
+    (js/console.log)))
+
+(get-sushi :transit transit-handler-verbose-obj)
+;;=> { pieces_of_sushi: 1 }
+
 
 ;
 ;   e88~~\  e88~-_  888-~\  e88~~8e         /~~~8e   d88~\ Y88b  / 888-~88e  e88~~\
