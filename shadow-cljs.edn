@@ -1,8 +1,9 @@
 {:source-paths ["src"]
  :dependencies [[proto-repl "0.3.1"]
                 [org.clojure/core.async "0.4.474"]
-                [cljs-ajax "0.7.3"]]
-                ; [instaparse "1.4.9"]]
+                [cljs-http "0.1.45"]
+                [cljs-ajax "0.7.3"]
+                [com.cognitect/transit-cljs "0.8.256"]]
  :nrepl {:port 3333}
  :builds
  {:lib {:target     :node-library

@@ -17,7 +17,7 @@
  (.log js/console
     (str "AJAX Error Status: " status " -> " status-text)))
 
-(GET cljs-async-docs
+(GET "https://api.census.gov/data/"
   {:handler basic-handler
    :error-handler basic-error-handler})
 

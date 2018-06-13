@@ -334,7 +334,7 @@ So we can keep track of what's going on with the channel in the following exampl
   (put! channel (str "#: " n " order: " order) put-logger))
 
 (defn IHOS-orders [channel order]
-  (dotimes [x 2100] lots-o'-orders
+  (dotimes [x 2100] ; lots-o'-orders
     (put!-n-order channel order x)))
 ```
 refresh (re-eval) our fixed-chan
