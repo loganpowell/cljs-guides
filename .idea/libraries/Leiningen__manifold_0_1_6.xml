@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Leiningen: manifold:0.1.6">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/manifold/manifold/0.1.6/manifold-0.1.6.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
