@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="24fdb105-524f-47b8-b601-6e659f075477" name="Default" comment="">
-      <change afterPath="$PROJECT_DIR$/../project.clj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../public/node/cljs-runtime/guides.core.js" beforeDir="false" afterPath="$PROJECT_DIR$/../public/node/cljs-runtime/guides.core.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../public/node/cljs-runtime/guides.core.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/../public/node/cljs-runtime/guides.core.js.map" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../public/node/cljs-runtime/shadow.umd_helper.js" beforeDir="false" afterPath="$PROJECT_DIR$/../public/node/cljs-runtime/shadow.umd_helper.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../public/node/examples.js" beforeDir="false" afterPath="$PROJECT_DIR$/../public/node/examples.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../src/http-requests/core.cljs" beforeDir="false" afterPath="$PROJECT_DIR$/../src/http-requests/core.cljs" afterDir="false" />
-    </list>
+    <list default="true" id="24fdb105-524f-47b8-b601-6e659f075477" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -18,11 +11,20 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="core.cljs" pinned="false" current-in-tab="true">
+      <file leaf-file-name="core.cljs" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/../src/http-requests/core.cljs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="460">
-              <caret line="43" selection-start-line="43" selection-end-line="43" />
+            <state relative-caret-position="560">
+              <caret line="28" selection-start-line="28" selection-end-line="28" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name=".gitignore" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/../.gitignore">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="20">
+              <caret line="1" column="6" selection-start-line="1" selection-start-column="6" selection-end-line="1" selection-end-column="6" />
             </state>
           </provider>
         </entry>
@@ -55,6 +57,7 @@
       <list>
         <option value="$PROJECT_DIR$/../project.clj" />
         <option value="$PROJECT_DIR$/../src/http-requests/core.cljs" />
+        <option value="$PROJECT_DIR$/../.gitignore" />
       </list>
     </option>
   </component>
@@ -75,15 +78,19 @@
   <component name="ProjectFrameBounds">
     <option name="x" value="2153" />
     <option name="y" value="-163" />
-    <option name="width" value="1235" />
+    <option name="width" value="1254" />
     <option name="height" value="1567" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
     <navigator proportions="" version="1">
+      <showMembers ProjectPane="true" />
+      <hideEmptyPackages ProjectPane="false" />
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="PackagesPane" />
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -106,8 +113,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="PackagesPane" />
-      <pane id="Scope" />
       <pane id="AndroidView" />
     </panes>
   </component>
@@ -115,9 +120,9 @@
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
+    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
   </component>
-  <component name="ReplState" timestamp="1529090165621">{:repl-history {:ide [], :local [{:command &quot;(ns http.core\n  (:require  [cljs.core.async :refer [chan put! take! &gt;! &lt;! buffer dropping-buffer sliding-buffer timeout close! alts!]]\n             [cljs.core.async :refer-macros [go go-loop alt!]]\n             [ajax.core :as http :refer [GET POST]]\n             [cognitect.transit :as t]\n             fs)\n  (:use [clojure.repl :only (source)]))&quot;, :offset 345, :ns &quot;user&quot;}], :remote [{:command &quot;(shadow/watch :the-build)\n(shadow/nrepl-select :the-build)&quot;, :offset 58, :ns &quot;shadow.user&quot;} {:command &quot;(shadow/watch :lib)\n(shadow/nrepl-select :lib)&quot;, :offset 46, :ns &quot;shadow.user&quot;} {:command &quot;(shadow/watch :app)&quot;, :offset 19, :ns &quot;shadow.user&quot;} {:command &quot;(shadow/nrepl-select :lib)&quot;, :offset 26, :ns &quot;cljs.user&quot;} {:command &quot;(defn get-json\n  [base-url keywords? params]\n  (let [args (merge\n               {:response-format :json\n                :handler #(prn %)\n                :keywords? keywords?\n                :error-handler #(prn (str \&quot;error: \&quot; %))}\n               (when-let [params {:params params}]\n                 params))]\n    (GET\n      base-url\n      args)))&quot;, :offset 347, :ns &quot;http.core&quot;} {:command &quot;(defn get-json\n  [base-url keywords? params]\n  (let [args (merge\n               {:response-format :json\n                :handler #(prn (t-&gt;json-verbose %))\n                :keywords? keywords?\n                :error-handler #(prn (str \&quot;error: \&quot; %))}\n               (when-let [params {:params params}]\n                 params))]\n    (GET\n      base-url\n      args)))&quot;, :offset 365, :ns &quot;http.core&quot;} {:command &quot;(def usda-base-url \&quot;https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch\&quot;)&quot;, :offset 86, :ns &quot;http.core&quot;} {:command &quot;(defn basic-error-handler [error] (prn (str \&quot;Error!: \&quot; error)))&quot;, :offset 63, :ns &quot;http.core&quot;} {:command &quot;(defn basic-success-handler [response] (cljs.pprint/pprint response))&quot;, :offset 69, :ns &quot;http.core&quot;} {:command &quot;(defn get-markets [format handler keywords? zipcode]\n  (GET\n    usda-base-url\n    {:response-format format\n     :handler handler\n     :keywords? keywords?\n     :error-handler basic-error-handler\n     :params {:zip zipcode}}))&quot;, :offset 225, :ns &quot;http.core&quot;} {:command &quot;(get-markets :json basic-success-handler true 32514)&quot;, :offset 52, :ns &quot;http.core&quot;} {:command &quot;(defn destructuring-example\n  [{{:keys [key]} :fs {:keys [method url]} :http :as opts}]\n  (let [response\n        (str \&quot;key? \&quot; key \&quot; method? \&quot; method \&quot; opts? \&quot; opts)]\n    (prn response)))&quot;, :offset 186, :ns &quot;http.core&quot;} {:command &quot;(destructuring-example {:fs {:key \&quot;test key\&quot;} :http {:method \&quot;get\&quot; :url \&quot;test url\&quot;}})&quot;, :offset 85, :ns &quot;http.core&quot;} {:command &quot;(defn transit-handler [response]\n  (-&gt;&gt;\n    (t-&gt;json response)\n    (prn)))&quot;, :offset 74, :ns &quot;http.core&quot;} {:command &quot;:cljs/quit&quot;, :offset 10, :ns &quot;user&quot;} {:command &quot;(shadow/watch :lib)&quot;, :offset 19, :ns &quot;shadow.user&quot;} {:command &quot;(shadow.cljs.devtools.api/node-repl)&quot;, :offset 36, :ns &quot;shadow.user&quot;} {:command &quot;(ns http.core\n  (:require  [cljs.core.async :refer [chan put! take! &gt;! &lt;! buffer dropping-buffer sliding-buffer timeout close! alts!]]\n             [cljs.core.async :refer-macros [go go-loop alt!]]\n             [ajax.core :as http :refer [GET POST]]\n             [cognitect.transit :as t]\n             fs)\n  (:use [clojure.repl :only (source)]))&quot;, :offset 345, :ns &quot;cljs.user&quot;} {:command &quot;(GET\n  \&quot;http://api.sushicount.com/add-piece-of-sushi/0\&quot;\n  {:handler #(prn %)})&quot;, :offset 78, :ns &quot;http.core&quot;} {:command &quot;(defn t-&gt;json-verbose [transit]\n  (let [w (t/writer :json-verbose)]\n    (t/write w transit)))&quot;, :offset 93, :ns &quot;http.core&quot;} {:command &quot;(defn t-&gt;json [transit]\n  (let [w (t/writer :json)]\n    (t/write w transit)))&quot;, :offset 77, :ns &quot;http.core&quot;} {:command &quot;(defn get-json\n  [base-url keywords? params]\n  (let [args (merge\n               {:response-format :json\n                :handler #(js/console.log (t-&gt;json-verbose %))\n                :keywords? keywords?\n                :error-handler #(prn (str \&quot;error: \&quot; %))}\n               (when-let [params {:params params}]\n                 params))]\n    (GET\n      base-url\n      args)))&quot;, :offset 376, :ns &quot;http.core&quot;} {:command &quot;(get-json\n  \&quot;https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson\&quot;\n  false)&quot;, :offset 108, :ns &quot;http.core&quot;}]}}</component>
+  <component name="ReplState" timestamp="1529091463616">{:repl-history {:ide [], :local [{:command &quot;(ns http.core\n  (:require  [cljs.core.async :refer [chan put! take! &gt;! &lt;! buffer dropping-buffer sliding-buffer timeout close! alts!]]\n             [cljs.core.async :refer-macros [go go-loop alt!]]\n             [ajax.core :as http :refer [GET POST]]\n             [cognitect.transit :as t]\n             fs)\n  (:use [clojure.repl :only (source)]))&quot;, :offset 345, :ns &quot;user&quot;}], :remote [{:command &quot;(shadow/watch :the-build)\n(shadow/nrepl-select :the-build)&quot;, :offset 58, :ns &quot;shadow.user&quot;} {:command &quot;(shadow/watch :lib)\n(shadow/nrepl-select :lib)&quot;, :offset 46, :ns &quot;shadow.user&quot;} {:command &quot;(shadow/watch :app)&quot;, :offset 19, :ns &quot;shadow.user&quot;} {:command &quot;(shadow/nrepl-select :lib)&quot;, :offset 26, :ns &quot;cljs.user&quot;} {:command &quot;(defn get-json\n  [base-url keywords? params]\n  (let [args (merge\n               {:response-format :json\n                :handler #(prn %)\n                :keywords? keywords?\n                :error-handler #(prn (str \&quot;error: \&quot; %))}\n               (when-let [params {:params params}]\n                 params))]\n    (GET\n      base-url\n      args)))&quot;, :offset 347, :ns &quot;http.core&quot;} {:command &quot;(defn get-json\n  [base-url keywords? params]\n  (let [args (merge\n               {:response-format :json\n                :handler #(prn (t-&gt;json-verbose %))\n                :keywords? keywords?\n                :error-handler #(prn (str \&quot;error: \&quot; %))}\n               (when-let [params {:params params}]\n                 params))]\n    (GET\n      base-url\n      args)))&quot;, :offset 365, :ns &quot;http.core&quot;} {:command &quot;(def usda-base-url \&quot;https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch\&quot;)&quot;, :offset 86, :ns &quot;http.core&quot;} {:command &quot;(defn basic-error-handler [error] (prn (str \&quot;Error!: \&quot; error)))&quot;, :offset 63, :ns &quot;http.core&quot;} {:command &quot;(defn basic-success-handler [response] (cljs.pprint/pprint response))&quot;, :offset 69, :ns &quot;http.core&quot;} {:command &quot;(defn get-markets [format handler keywords? zipcode]\n  (GET\n    usda-base-url\n    {:response-format format\n     :handler handler\n     :keywords? keywords?\n     :error-handler basic-error-handler\n     :params {:zip zipcode}}))&quot;, :offset 225, :ns &quot;http.core&quot;} {:command &quot;(get-markets :json basic-success-handler true 32514)&quot;, :offset 52, :ns &quot;http.core&quot;} {:command &quot;(defn destructuring-example\n  [{{:keys [key]} :fs {:keys [method url]} :http :as opts}]\n  (let [response\n        (str \&quot;key? \&quot; key \&quot; method? \&quot; method \&quot; opts? \&quot; opts)]\n    (prn response)))&quot;, :offset 186, :ns &quot;http.core&quot;} {:command &quot;(destructuring-example {:fs {:key \&quot;test key\&quot;} :http {:method \&quot;get\&quot; :url \&quot;test url\&quot;}})&quot;, :offset 85, :ns &quot;http.core&quot;} {:command &quot;(defn transit-handler [response]\n  (-&gt;&gt;\n    (t-&gt;json response)\n    (prn)))&quot;, :offset 74, :ns &quot;http.core&quot;} {:command &quot;:cljs/quit&quot;, :offset 10, :ns &quot;user&quot;} {:command &quot;(shadow/watch :lib)&quot;, :offset 19, :ns &quot;shadow.user&quot;} {:command &quot;(shadow.cljs.devtools.api/node-repl)&quot;, :offset 36, :ns &quot;shadow.user&quot;} {:command &quot;(ns http.core\n  (:require  [cljs.core.async :refer [chan put! take! &gt;! &lt;! buffer dropping-buffer sliding-buffer timeout close! alts!]]\n             [cljs.core.async :refer-macros [go go-loop alt!]]\n             [ajax.core :as http :refer [GET POST]]\n             [cognitect.transit :as t]\n             fs)\n  (:use [clojure.repl :only (source)]))&quot;, :offset 345, :ns &quot;cljs.user&quot;} {:command &quot;(GET\n  \&quot;http://api.sushicount.com/add-piece-of-sushi/0\&quot;\n  {:handler #(prn %)})&quot;, :offset 78, :ns &quot;http.core&quot;} {:command &quot;(defn t-&gt;json-verbose [transit]\n  (let [w (t/writer :json-verbose)]\n    (t/write w transit)))&quot;, :offset 93, :ns &quot;http.core&quot;} {:command &quot;(defn t-&gt;json [transit]\n  (let [w (t/writer :json)]\n    (t/write w transit)))&quot;, :offset 77, :ns &quot;http.core&quot;} {:command &quot;(defn get-json\n  [base-url keywords? params]\n  (let [args (merge\n               {:response-format :json\n                :handler #(js/console.log (t-&gt;json-verbose %))\n                :keywords? keywords?\n                :error-handler #(prn (str \&quot;error: \&quot; %))}\n               (when-let [params {:params params}]\n                 params))]\n    (GET\n      base-url\n      args)))&quot;, :offset 376, :ns &quot;http.core&quot;} {:command &quot;(get-json\n  \&quot;https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson\&quot;\n  false)&quot;, :offset 108, :ns &quot;http.core&quot;}]}}</component>
   <component name="RunDashboard">
     <option name="ruleStates">
       <list>
@@ -227,45 +232,50 @@
       <workItem from="1529090247339" duration="160000" />
       <workItem from="1529090445047" duration="122000" />
       <workItem from="1529090618925" duration="60000" />
-      <workItem from="1529090739604" duration="88000" />
+      <workItem from="1529090739604" duration="717000" />
+      <workItem from="1529091494809" duration="141000" />
+      <workItem from="1529091675439" duration="432000" />
+      <workItem from="1529092141765" duration="165000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="10650000" />
+    <option name="totallyTimeSpent" value="12017000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="2153" y="-163" width="1235" height="1567" extended-state="0" />
+    <frame x="2153" y="-163" width="1254" height="1567" extended-state="0" />
+    <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
       <window_info anchor="right" id="Palette&#9;" order="3" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" weight="0.329904" />
-      <window_info anchor="right" id="REPL" order="3" side_tool="true" weight="0.30199614" />
+      <window_info anchor="right" id="REPL" order="3" side_tool="true" weight="0.29725364" />
       <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
-      <window_info anchor="bottom" id="Version Control" order="7" />
+      <window_info anchor="bottom" id="Version Control" order="7" show_stripe_button="false" weight="0.329904" />
       <window_info anchor="bottom" id="Run" order="2" weight="0.329904" />
       <window_info anchor="right" id="Leiningen" order="3" />
       <window_info anchor="bottom" id="Terminal" order="7" />
       <window_info id="Designer" order="2" />
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.17637408" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.1736672" />
       <window_info anchor="right" id="Database" order="3" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39986283" />
       <window_info anchor="right" id="Palette" order="3" />
-      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" id="Capture Analysis" order="3" />
-      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="right" id="Theme Preview" order="3" />
-      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
-      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info id="Image Layers" order="2" />
-      <window_info id="UI Designer" order="2" />
-      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
+      <window_info id="UI Designer" order="2" />
       <window_info id="Capture Tool" order="2" />
-      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="right" id="Capture Analysis" order="3" />
+      <window_info anchor="bottom" id="Messages" order="7" />
+      <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
       <window_info anchor="right" id="Maven Projects" order="3" />
+      <window_info anchor="bottom" id="Find" order="1" />
+      <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
+      <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="right" id="Theme Preview" order="3" />
     </layout>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -274,7 +284,75 @@
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
   </component>
+  <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$PROJECT_DIR$/.." />
+    </ignored-roots>
+  </component>
   <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/../src/http-requests/core.cljs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="560">
+          <caret line="28" lean-forward="true" selection-start-line="28" selection-end-line="28" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../project.clj">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="300">
+          <caret line="15" column="47" selection-start-line="15" selection-start-column="47" selection-end-line="15" selection-end-column="47" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../shadow-cljs.edn">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="220">
+          <caret line="11" column="46" selection-start-line="11" selection-start-column="46" selection-end-line="11" selection-end-column="46" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../src/http-requests/core.cljs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="460">
+          <caret line="23" column="33" selection-start-line="23" selection-start-column="33" selection-end-line="23" selection-end-column="33" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../project.clj">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="300">
+          <caret line="15" column="47" selection-start-line="15" selection-start-column="47" selection-end-line="15" selection-end-column="47" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../shadow-cljs.edn">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="220">
+          <caret line="11" column="46" selection-start-line="11" selection-start-column="46" selection-end-line="11" selection-end-column="46" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../src/http-requests/core.cljs">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="460">
+          <caret line="23" column="33" lean-forward="true" selection-start-line="23" selection-start-column="33" selection-end-line="23" selection-end-column="33" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../project.clj">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="300">
+          <caret line="15" column="47" selection-start-line="15" selection-start-column="47" selection-end-line="15" selection-end-column="47" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../shadow-cljs.edn">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="220">
+          <caret line="11" column="46" selection-start-line="11" selection-start-column="46" selection-end-line="11" selection-end-column="46" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/../src/http-requests/core.cljs">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="3632">
@@ -464,10 +542,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/../target/repl-port" />
     <entry file="file://$PROJECT_DIR$/../src/http-requests/core.cljs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="460">
-          <caret line="43" selection-start-line="43" selection-end-line="43" />
+        <state relative-caret-position="560">
+          <caret line="28" selection-start-line="28" selection-end-line="28" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/../.gitignore">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="20">
+          <caret line="1" column="6" selection-start-line="1" selection-start-column="6" selection-end-line="1" selection-end-column="6" />
         </state>
       </provider>
     </entry>
