@@ -1,6 +1,6 @@
-node_modules
-/target
+node_modules/
+target/
 .shadow-cljs
 .nrepl-port
 .env
-/.idea
+.idea/
