@@ -7,7 +7,8 @@
    [org.clojure/core.async "0.4.474"]
    [cljs-http "0.1.45"]
    [cljs-ajax "0.7.3"]
-   [com.cognitect/transit-cljs "0.8.256"]]
+   [com.cognitect/transit-cljs "0.8.256"]
+   [binaryage/oops "0.6.2"]]
   :builds
   {:lib {:target     :node-library
          :output-dir "public/node"
