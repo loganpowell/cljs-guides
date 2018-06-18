@@ -3,6 +3,7 @@
              [cljs.core.async :refer-macros [go go-loop alt!]]
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
+             [clojure.string :as s]
              fs)
   (:use [clojure.repl :only (source)]))
 
@@ -190,16 +191,8 @@
 ;   {:id "1010546", :marketname "54.8 Raw and Juicy Farmers Market"}]}
 
 
-
-;   e88~~\  e88~-_  888-~\  e88~~8e         /~~~8e   d88~\ Y88b  / 888-~88e  e88~~\
-;  d888    d888   i 888    d888  88b ____       88b C888    Y888/  888  888 d888
-;  8888    8888   | 888    8888__888       e88~-888  Y88b    Y8/   888  888 8888
-;  Y888    Y888   ' 888    Y888    ,      C888  888   888D    Y    888  888 Y888
-;   "88__/  "88_-~  888     "88___/        "88_-888 \_88P    /     888  888  '88__/
-;                                                          _/
-
 ; ===============================
-; Return a channel instead of a future
+; Advanced Destructuring for `cljs-ajax` Arguments
 ; ===============================
 
 
@@ -249,11 +242,78 @@
       base-url
       args)))
 
-;; Breaks Atom
+;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
 (get-json
   "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
   false)
 
+
+; ===============================
+; Wrangling...
+; ===============================
+
+; [source](https://github.com/mihi-tr/csv-map/blob/master/src/csv_map/core.clj)
+
+
+(defn keywordize
+  "takes a map, converts string keys to keyword keys with all lowercase and dash instead of spaces"
+  [m]
+  (into {}
+        (for [[k v] m]
+          [(keyword (s/lower-case (s/replace k #" " "-"))) v])))
+
+;; API
+
+(defn parse-csv
+  "parses a csv to a map ([csv & {:as opts}]) passes options to clojure-csv converts string keys to keywords if ':key :keyword' is pass as extra opts."
+  [csv & {key :key :as opts}]
+  (let [opts   (vec (reduce concat (vec opts)))
+        c      (apply parse-csv csv opts)
+        output (map (partial zipmap (reverse (first c))) (map reverse (rest c)))]
+    (if (= key :keyword) (map keywordize output) output)))
+
+
+
+(defn get-map-keys
+  [base-url keywords? params]
+  (let [args (merge
+               {:response-format :json
+                ;:handler #(prn (parse-csv % {:key :keyword}))
+                :handler #(prn %)
+                :keywords? keywords?
+                :error-handler #(prn (str "error: " %))}
+               (when-let [params {:params params}]
+                 params))]
+    (GET
+      base-url
+      args)))
+
+;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
+(get-map-keys
+  "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
+  true)
+
+(get-map-keys
+  "https://api.census.gov/data/2016/acs/acs5?get=NAME,B01001_001E&for=county:*&in=state:01"
+  false)
+
+
+
+
+
+
+
+
+
+
+
+
+;   e88~~\  e88~-_  888-~\  e88~~8e         /~~~8e   d88~\ Y88b  / 888-~88e  e88~~\
+;  d888    d888   i 888    d888  88b ____       88b C888    Y888/  888  888 d888
+;  8888    8888   | 888    8888__888       e88~-888  Y88b    Y8/   888  888 8888
+;  Y888    Y888   ' 888    Y888    ,      C888  888   888D    Y    888  888 Y888
+;   "88__/  "88_-~  888     "88___/        "88_-888 \_88P    /     888  888  '88__/
+;                                                          _/
 
 ; Let's start
 
