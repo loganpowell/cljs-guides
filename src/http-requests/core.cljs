@@ -3,9 +3,10 @@
              [cljs.core.async :refer-macros [go go-loop alt!]]
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
-             [clojure.string :as s]
-             ["dotenv" :as env]
              [oops.core :as ops :refer [oget]]
+             [clojure.string :as s]
+             [cljs.pprint :refer [pprint]]
+             ["dotenv" :as env]
              fs)
   (:use [clojure.repl :only (source)]))
 
@@ -152,7 +153,7 @@
 
 (defn basic-error-handler [error] (prn (str "Error!: " error)))
 
-(defn basic-success-handler [response] (cljs.pprint/pprint response))
+(defn basic-success-handler [response] (pprint response))
 
 ; The `zipcode` argument will translate the `:zip` key into a parameter for the REST API:
 ; I.e.: https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch`?` `zip=` `zipcode`
@@ -197,12 +198,6 @@
 
 ; By default, `cljs-ajax` uses the Google Closure library [XhrIo](https://developers.google.com/closure/library/docs/xhrio) API. If you want to use [XMLHttpRequest](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest) API directly, add :api (js/XMLHttpRequest.) to the map. Both of these use callback APIs to do their business.
 
-; Let's do something a bit more interesting and use `core.async`. Let's say we're looking to setup a new headquarters and want to create a heatmap of all US Counties to evaluate local markets that fit our existing customer demographic profiles. This tool will leverage two APIs:
-; - Census Statistics, which has a public API (that you can use without a [key](https://api.census.gov/data/key_signup.html) for a pretty generous number of calls per month).)
-
-; - A simple call to a raw GeoJSON file
-
-
 
 ;   e88~~\  e88~-_  888-~\  e88~~8e         /~~~8e   d88~\ Y88b  / 888-~88e  e88~~\
 ;  d888    d888   i 888    d888  88b ____       88b C888    Y888/  888  888 d888
@@ -211,18 +206,14 @@
 ;   "88__/  "88_-~  888     "88___/        "88_-888 \_88P    /     888  888  '88__/
 ;                                                          _/
 
-
-(defn handle-progress [e]
-  (js/console.log (str "Progress (" (.-loaded e) "/" (.-total e) ")")))
-
 (defn get-json
   [base-url keywords? params]
   (let [=resp= (chan)
         args (merge
                {:response-format :json
+                ;:handler #(put! =resp= % (fn [r] (prn (str "put? " r))))
                 :handler #(put! =resp= % prn)
-                :error-handler #(prn (str "error: " %))
-                :progress-handler handle-progress}
+                :error-handler #(prn (str "error: " %))}
                (when-let [keywords? {:keywords? keywords?}]
                  keywords?)
                (when-let [params {:params params}]
@@ -231,60 +222,85 @@
       (GET base-url args)
       =resp=)))
 
-;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
+;; Now that we're using `core.async`, we'll have to move our success-handler out of `cljs-ajax` in order  for the response that is put into the channel to be handled once it is taken out. Observe:
 (go
   (->
     (get-json
       "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514"
       false)
     (<!)
-    (basic-success-handler)))
+    (pprint)))
 ;;=>
 ;{"results"
 ; [{"id" "1007518", "marketname" "4.3 Pensacola Growers' Retail Farmers' Market"}
-;  {"id" "1011160", "marketname" "6.3 Santa Rosa Farmers Market"}
-;  {"id" "1005683", "marketname" "6.5 The Market @ Saint Monica's"}
-;  {"id" "1004835", "marketname" "7.7 Palafox Market"}
-;  {"id" "1007779", "marketname" "8.2 Port City Market"}
-;  {"id" "1006840", "marketname" "13.6 Riverwalk Market"}
-;  {"id" "1011667", "marketname" "17.7 Perdido Farmers Market"}
-;  {"id" "1004049", "marketname" "22.9 Elberta Farmer's Market"}
-;  {"id" "1004401", "marketname" "27.8 Chicago Street Farmers Market"}
-;  {"id" "1004086", "marketname" "31.4 Alabama Gulf Coast Market"}
-;  {"id" "1005971", "marketname" "33.0 Flomaton Farmers Market"}
-;  {"id" "1001372", "marketname" "37.0 Okaloosa County Farmers Market"}
-;  {"id" "1011967", "marketname" "37.0 Akers of Strawberries"}
-;  {"id" "1001373", "marketname" "37.2 Fort Walton Beach Farmers Market"}
-;  {"id" "1000051", "marketname" "39.6 Fairhope Outdoor Farm Market"}
-;  {"id" "1001508", "marketname" "43.5 Crestview Farmers Market"}
-;  {"id" "1001610", "marketname" "44.9 Brewton Farmers Market"}
-;  {"id" "1003137", "marketname" "52.0 Halls Mill Road Farmers Market"}
+;... same as before
 ;  {"id" "1010546", "marketname" "54.8 Raw and Juicy Farmers Market"}]}
 
-;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
+;; This will also work for very large payloads.
+
+
+(go
+  (->
+    (get-json
+      "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json"
+      false)
+    (<!)
+    (pprint)))
+
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+; "put? true"
+; {"type" "FeatureCollection",
+;  "features"
+;  [{"type" "Feature",
+;    "properties"
+;    {"LSAD" "06",
+;     "COUNTYNS" "00161528",
+;     "NAME" "Barbour",
+;     "GEOID" "01005",
+;     "STATEFP" "01",
+;     "ALAND" 2291820706,
+;     "AFFGEOID" "0500000US01005",
+;     "AWATER" 50864677,
+;     "COUNTYFP" "005"},
+;    "geometry"
+;    {"type" "Polygon",
+;     "coordinates"
+;     [[[-85.748032 31.619181]
+;       [-85.745435 31.618898]
+;       ...
+
+; ===============================
+; Aside: Test the Might of your Editor :D
+
+;; WARNING: This large (@20M) file might freeze up your machine. For me, the console.log broke my default editor (Atom), so I had to switch to the Intellij IDEA with Cursive Plugin, which works. Be warned that even when this did work, it took about 2 minutes.
+
 (go
   (->
     (get-json
       "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
       false)
     (<!)
-    (prn)))
+    (pprint)))
+
+; ===============================
+
+
+; You may be asking yourself "why would we want to use `core.async` with an http request? Why not just use callbacks?" Well, you could use callbacks, with futures (promises), but let's say we want to build in some sophisticated data transformations over your response.
+
+; Let's do something a bit more interesting. The huge payload of data that broke my last editor wasn't just a test. We will that payload for our next example.
+
+; Let's say we're looking to setup a new headquarters and want to create a heatmap of all US Counties to evaluate local markets that fit our existing customer demographic profiles. This tool will leverage two APIs:
+; - Census Statistics, which has a public API (that you can use without a [key](https://api.census.gov/data/key_signup.html) for a pretty generous number of calls per month).)
+; - A simple call to a raw GeoJSON file which has been stored in a raw format on [Github](https://github.com/loganpowell/geojson/blob/master/src/archive/test.geojson)
 
 
 ; ===============================
-; Wrangling...
+; A couple of helper functions for building a proper URL string
 ; ===============================
+
+; We will have to do some "wrangling" with these data in order to get what we need: A GeoJSON payload with statistics merged into the "properties" attribute. This section is not important to your understanding of either `core.async` or `cljs-ajax` and can be comfortably skipped. However, we will need this in order to do the cool multi-API data munging later.
 
 (def stats-key (ops/oget (env/load) ["parsed" "Census_Key_Pro"]))
-
-
-; [source](https://github.com/mihi-tr/csv-map/blob/master/src/csv_map/core.clj)
-
-; Vintage (`2016`)
-; source (`acs/acs5`)
-; {geography} (`{:state: 01 :county 001}` or `{:state 01 :county [001, 002,...]}` or `{:state * :county * :tract *}`
-; [variables] (count - count of returned array `first` column = `GEOID`)
-; key
 
 (def stats-base "https://api.census.gov/data/")
 
@@ -297,155 +313,70 @@
 
 (defn stats-url-builder
   "Composes a URL to call Census' statistics API"
-  [{:keys [vintage source geography variables key]}]
+  [{:keys [vintage sourcePath geoHierarchy variables key]}]
   (str
     stats-base vintage
-    "/" source
+    "/" (s/join "/" sourcePath)
     "?get=" (s/join "," variables)
-    "&in=" (s/join "%20" (map #(vec-pair->str %) (butlast geography)))
-    "&for=" (vec-pair->str (last geography))
+    (if (<= 2 (count geoHierarchy))
+      (str "&in=" (s/join "%20" (map #(vec-pair->str % ) (butlast geoHierarchy)))
+           "&for=" (vec-pair->str (last geoHierarchy)))
+      (str "&for=" (vec-pair->str (first geoHierarchy))))
     "&key=" key))
 
 ; TEST
 (stats-url-builder {:vintage "2016"
-                    :source "acs/acs5"
-                    :geography {:state "01" :county "073" :tract "000100"}
+                    :sourcePath ["acs" "acs5"]
+                    :geoHierarchy {:state "01" :county "073" :tract "00100"}
                     :variables ["B01001_001E" "B01001_001M"]
                     :key stats-key})
 ;;=> "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:000100&key=<key>"
 ; Works :)
 
-(defn parse-stats-response [c]
-  (map (partial zipmap (first c)) (rest c)))
+; ===============================
+; Wrangling the Census statistics' API response into a proper map
+; ===============================
+
+; The response format of the Census statistics' API is a csv-like JSON format, which will make it difficult to work with despite it's clear advantage in terms of payload size. Let's create a function that takes the top row as the labels and zipmap them to the rest of the rows of the response:
+
+; [Inspiration](https://github.com/mihi-tr/csv-map/blob/master/src/csv_map/core.clj)
+
+(defn parse-stats-response [k c]
+  (if (= :keywords k)
+    (map (partial zipmap (vec (map keyword (first c)))) (rest c))
+    (map (partial zipmap (first c)) (rest c))))
+
+(parse-stats-response [["B01001_001E" "B01001_001M" "state" "county" "tract"] ["3111" "369" "01" "073" "000100"]] :keywords)
 
 (defn get-stats
   "Composes a call and calls Census' Statistics API"
-  [{:keys [vintage source geography variables key] :as args}]
+  [{:keys [vintage source geography variables key] :as args} keywords?]
   (let [call (stats-url-builder args)]
     (go
       (->
         (get-json call false)
         (<!)
-        (parse-stats-response)
-        (prn)))))
+        (parse-stats-response keywords?)
+        (pprint)))))
 
 ; TESTS
 (get-stats{:vintage "2016"
-           :source "acs/acs5"
-           :geography {:state "01" :county "073" :tract "000100"}
+           :sourcePath ["acs" "acs5"]
+           :geoHierarchy {:state "01" :county "073" :tract "000100"}
            :variables ["B01001_001E" "B01001_001M"]
-           :key stats-key})
-;;=> ({"B01001_001E" "3111", "B01001_001M" "369", "state" "01", "county" "073", "tract" "000100"})
+           :key stats-key} :keywords)
+;;=> ({:B01001_001E "3111", :B01001_001M "369", :state "01", :county "073", :tract "000100"})
 
 (get-stats{:vintage "2016"
-           :source "acs/acs5"
-           :geography {:state "01" :county "*"}
+           :sourcePath ["acs" "acs5"]
+           :geoHierarchy {:state "01" :county "073"}
+           :variables ["B01001_001E" "B01001_001M"]
+           :key stats-key} :keywords)
+;;=> ({:B01001_001E "659096", :B01001_001M "-555555555", :state "01", :county "073"})
+
+(get-stats{:vintage "2016"
+           :sourcePath ["acs" "acs5"]
+           :geoHierarchy {:state "*"}
            :variables ["B01001_001E"]
-           :key stats-key})
+           :key stats-key} :keywords)
 
-
-(defn keywordizer
-  "Turns first result from Census' statistics API response into a vector of :keywords"
-  [v]
-  (vec (map keyword v)))
-
-(keywordizer (first test-response))
-;;=> [:B01001_001E :B01001_001M :state :county :tract]
-
-;; API
-
-(defn parse-stats-response [c]
-  (map (partial zipmap (first c)) (rest c)))
-
-(zipmap [:B01001_001E :B01001_001M :state :county :tract] ["3111" "369" "01" "073" "000100"])
-(parse-stats-response test-response)
-(rest test-response)
-
-(defn parse-csv
-  "parses a csv to a map ([csv & {:as opts}]) passes options to clojure-csv converts string keys to keywords if ':key :keyword' is pass as extra opts."
-  [csv & {key :key :as opts}]
-  (let [opts   (vec (reduce concat (vec opts)))
-        c      (apply parse-csv csv opts)
-        output (map (partial zipmap (reverse (first c))) (map reverse (rest c)))]
-    (if (= key :keyword) (map keywordize output) output)))
-
-
-
-(defn get-map-keys
-  [base-url keywords? params]
-  (let [args (merge
-               {:response-format :json
-                ;:handler #(prn (parse-csv % {:key :keyword}))
-                :handler #(prn (stats-obj %))
-                :keywords? keywords?
-                :error-handler #(prn (str "error: " %))}
-               (when-let [params {:params params}]
-                 params))]
-    (GET
-      base-url
-      args)))
-
-;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
-(get-map-keys
-  "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
-  true)
-
-(get-map-keys
-  "https://api.census.gov/data/2016/acs/acs5?get=NAME,B01001_001E&for=county:*&in=state:01"
-  false)
-
-
-
-
-
-
-
-
-
-
-
-
-;   e88~~\  e88~-_  888-~\  e88~~8e         /~~~8e   d88~\ Y88b  / 888-~88e  e88~~\
-;  d888    d888   i 888    d888  88b ____       88b C888    Y888/  888  888 d888
-;  8888    8888   | 888    8888__888       e88~-888  Y88b    Y8/   888  888 8888
-;  Y888    Y888   ' 888    Y888    ,      C888  888   888D    Y    888  888 Y888
-;   "88__/  "88_-~  888     "88___/        "88_-888 \_88P    /     888  888  '88__/
-;                                                          _/
-
-; Let's start
-
-(defn ajax-call "Accept a cljs-ajax request map, and returns a channel which will contain the response."
-  [{:keys [method uri] :as opts}]
-  (let [=resp= (chan)]
-    (http/ajax-request (assoc opts
-                        :handler (fn [[ok r :as data]]
-                                   (if ok
-                                     (->>
-                                       (t->json)
-                                       (put! =resp= r))
-                                     (prn "AJAX Error" {:error r :request opts})))))
-    =resp=))
-
-(def ajax-defaults "Basic options for the response format"
-  {:format (http/json-request-format)
-   :response-format (http/transit-response-format {:keywords? false})})
-
-(defn fetch-datasets []
-  (ajax-call (assoc ajax-defaults
-               :method :get :uri census-discovery-base)))
-
-
-(defn clj->json
-  [ds]
-  (->>
-    (clj->js ds)
-    (.stringify js/JSON)))
-    ; (.parse js/JSON)))
-
-
-(go
-  (->
-    (fetch-datasets)
-    (<!)
-    ; (clj->json)
-    (prn)))
