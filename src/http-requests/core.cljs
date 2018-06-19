@@ -4,8 +4,8 @@
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
              [clojure.string :as s]
-             ["dotenv" :as dotenv]
-             [oops.core :refer [oget]]
+             ["dotenv" :as env]
+             [oops.core :as ops :refer [oget]]
              fs)
   (:use [clojure.repl :only (source)]))
 
@@ -222,26 +222,6 @@
 ; "
 
 
-(defn destructuring-example-2
-  [{:keys [vintage source geography variables key]}]
-  (let [response
-        (str "vintage: " vintage
-             " source: " source
-             " scope " scope
-             " geography: " geography
-             " variables " variables
-             " key " key)]
-    (js/console.log response)))
-
-(destructuring-example-2 {:vintage 2016
-                          :source "acs/acs5"
-                          :geography {:state "01"
-                                      :county "*"}
-                          :variables ["B01001_001E", "B01001_001M"]
-                          :key "key-holder"})
-;;=>
-;; vintage: 2016 source: acs/acs5 scope  geography: {:state 1, :county "*"} variables ["B01001_001E" "B01001_001M"] key key-holder
-
 ; ===============================
 
 ; Merge two remote resources
@@ -252,36 +232,51 @@
 ; - A simple call to a raw GeoJSON file
 
 
+
+;   e88~~\  e88~-_  888-~\  e88~~8e         /~~~8e   d88~\ Y88b  / 888-~88e  e88~~\
+;  d888    d888   i 888    d888  88b ____       88b C888    Y888/  888  888 d888
+;  8888    8888   | 888    8888__888       e88~-888  Y88b    Y8/   888  888 8888
+;  Y888    Y888   ' 888    Y888    ,      C888  888   888D    Y    888  888 Y888
+;   "88__/  "88_-~  888     "88___/        "88_-888 \_88P    /     888  888  '88__/
+;                                                          _/
+
 (defn get-json
   [base-url keywords? params]
-  (let [args (merge
+  (let [=resp= (chan)
+        args (merge
                {:response-format :json
                 ;:handler #(js/console.log (t->json-verbose %))
-                :handler #(prn %)
+                :handler #(put! =resp= % js/console.log)
                 :keywords? keywords?
-                :interceptors [(http/to-interceptor :url-request-format :str)]
                 :error-handler #(prn (str "error: " %))}
                (when-let [params {:params params}]
                  params))]
-    (GET
-      base-url
-      args)))
+    (do
+      (GET base-url args)
+      =resp=)))
+
+
+
 
 ;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
 (get-json
   "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
   false)
-
-(get-json
-  "https://api.census.gov/data/2016/acs/acs5?get=NAME,B01001_001E&for=county:*&in=state:01"
-  false)
+(go
+  (->
+    (get-json
+      "https://api.census.gov/data/2016/acs/acs5?get=NAME,B01001_001E&for=county:*&in=state:01"
+      false)
+    (<!)
+    (prn)))
 
 
 ; ===============================
 ; Wrangling...
 ; ===============================
 
-(def stats-key (oget (dotenv/load) ["parsed" "Census_Key_Pro"]))
+(def stats-key (ops/oget (env/load) ["parsed" "Census_Key_Pro"]))
+
 
 ; [source](https://github.com/mihi-tr/csv-map/blob/master/src/csv_map/core.clj)
 
@@ -293,15 +288,10 @@
 
 (def stats-base "https://api.census.gov/data/")
 
-(defn var-str [map]
-  (subs (str (clj->js (s/join ":" (first map)))) 1))
-
-(first {:state "01" :county "001" :tract "*"})
-;;=> [:state "01"]
-
 (defn vec-pair->str [pair]
   (subs (str (s/join ":" pair)) 1))
 
+; TEST
 (vec-pair->str [:state "01"])
 ;;=> "state:01"
 
@@ -312,63 +302,64 @@
     stats-base vintage
     "/" source
     "?get=" (s/join "," variables)
-    "&in=" (vec-pair->str (first geography))
-    "&for=" (apply #(vec-pair->str %) (rest geography))
+    "&in=" (s/join "%20" (map #(vec-pair->str %) (butlast geography)))
+    "&for=" (vec-pair->str (last geography))
     "&key=" key))
 
-(js/console.log (t->json-verbose {:state "01" :county "*"}))
-(js/console.log (clj->js (first {:state "01" :county "001" :tract "*"})))
-(js/console.log (clj->js (first (rest {:state "01" :county "001" :tract "*"}))))
-
-
-(aget)
+; TEST
 (stats-url-builder {:vintage "2016"
                     :source "acs/acs5"
-                    :geography {:state "01" :county "*"}
+                    :geography {:state "01" :county "073" :tract "000100"}
                     :variables ["B01001_001E" "B01001_001M"]
                     :key stats-key})
+;;=> "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:000100&key=<key>"
+; Works :)
+
+(defn parse-stats-response [c]
+  (map (partial zipmap (first c)) (rest c)))
 
 (defn get-stats
   "Composes a call and calls Census' Statistics API"
-  [{:keys [vintage source geography variables key]}]
-  (let [call (str stats-base vintage "/" source)]
-    (get-json call false {:in (first geography)
-                          :for (rest geography)
-                          :get (s/join "," variables)
-                          :key key})))
+  [{:keys [vintage source geography variables key] :as args} channel]
+  (let [call (stats-url-builder args)]
+    (go
+      (->
+        (get-json call false)
+        (<!)
+        (parse-stats-response)
+        (prn)))))
+
+; TESTS
+(get-stats{:vintage "2016"
+           :source "acs/acs5"
+           :geography {:state "01" :county "073" :tract "000100"}
+           :variables ["B01001_001E" "B01001_001M"]
+           :key stats-key})
+;;=> ({"B01001_001E" "3111", "B01001_001M" "369", "state" "01", "county" "073", "tract" "000100"})
+
+(get-stats{:vintage "2016"
+           :source "acs/acs5"
+           :geography {:state "01" :county "*"}
+           :variables ["B01001_001E"]
+           :key stats-key})
 
 
-(get-stats {:vintage "2016"
-            :source "acs/acs5"
-            :geography {:state "01" :county "*"}
-            :variables ["B01001_001E" "B01001_001M"]
-            :key stats-key})
+(defn keywordizer
+  "Turns first result from Census' statistics API response into a vector of :keywords"
+  [v]
+  (vec (map keyword v)))
 
-(rest {:state "01" :county "*"})
-
-(defn stats-obj
-  [dataweb-json]
-  (let [labels (first dataweb-json)]
-    labels))
-
-
-
-
-
-
-
-
-
-
-
-(defn keywordize
-  "takes a map, converts string keys to keyword keys with all lowercase and dash instead of spaces"
-  [m]
-  (into {}
-        (for [[k v] m]
-          [(keyword (s/lower-case (s/replace k #" " "-"))) v])))
+(keywordizer (first test-response))
+;;=> [:B01001_001E :B01001_001M :state :county :tract]
 
 ;; API
+
+(defn parse-stats-response [c]
+  (map (partial zipmap (first c)) (rest c)))
+
+(zipmap [:B01001_001E :B01001_001M :state :county :tract] ["3111" "369" "01" "073" "000100"])
+(parse-stats-response test-response)
+(rest test-response)
 
 (defn parse-csv
   "parses a csv to a map ([csv & {:as opts}]) passes options to clojure-csv converts string keys to keywords if ':key :keyword' is pass as extra opts."
