@@ -60,15 +60,13 @@
      :response-format format
      :keywords? keywords?}))
 
-(defn json-sushi [response] (prn response))
-
 ; The default settings of `cljs-ajax`s response format is `:json`. It's important to note that the `:keywords?` option only applies to `:response-format :json`, so we'll need to specify that if we're explicitly including the `:response-format`:
 
-(get-sushi :json json-sushi false)
+(get-sushi :json #(prn %) false)
 ;;=> {"pieces_of_sushi" 1} ;; = same as default behavior in first example
 
 ; turn json into keywordized clojure map!
-(get-sushi :json json-sushi true)
+(get-sushi :json #(prn %) true)
 ;;=> {:pieces_of_sushi 1}
 
 
@@ -84,13 +82,13 @@
 ; Using transit writer for optimized :json response
 ; ===============================
 
-(defn t->json [transit]
+(defn t->json [t]
   (let [w (t/writer :json)]
-    (t/write w transit)))
+    (t/write w t)))
 
-(defn transit-handler [response]
+(defn transit-handler [r]
   (->>
-    (t->json response)
+    (t->json r)
     (prn)))
 
 ; keywords don't apply to :transit
@@ -101,13 +99,13 @@
 ; Using transit writer :json-verbose for formal json
 ; ===============================
 
-(defn t->json-verbose [transit]
+(defn t->json-verbose [t]
   (let [w (t/writer :json-verbose)]
-    (t/write w transit)))
+    (t/write w t)))
 
-(defn json-verbose [response]
+(defn json-verbose [r]
   (->>
-    (t->json-verbose response)
+    (t->json-verbose r)
     (prn)))
 
 (get-sushi :transit json-verbose)
@@ -194,39 +192,12 @@
 
 
 ; ===============================
-; Advanced Destructuring for `cljs-ajax` Arguments
+; Merge two remote resources
 ; ===============================
-
 
 ; By default, `cljs-ajax` uses the Google Closure library [XhrIo](https://developers.google.com/closure/library/docs/xhrio) API. If you want to use [XMLHttpRequest](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest) API directly, add :api (js/XMLHttpRequest.) to the map. Both of these use callback APIs to do their business.
 
-; Let's do something a bit more interesting and use `core.async`.
-
-; ===============================
-; Aside: Destructuring
-
-; If you're new to destructuring syntax, there's a great article about it by [Bruno Bonacci](http://blog.brunobonacci.com/2014/11/16/clojure-complete-guide-to-destructuring/). But here's an example of some pretty sweet map destructuring to get us acquainted with what's possible:
-
-(defn destructuring-example
-  [{{:keys [key]} :fs {:keys [method url]} :http :as opts}]
-  (let [response
-        (str "key? " key " method? " method " opts? " opts)]
-    (prn response)))
-
-(destructuring-example {:fs {:key "test key"} :http {:method "get" :url "test url"}})
-;;=>
-; "}})
-; key? test key
-; method? get
-; opts? {:fs {:key \"test key\"}, :http {:method \"get\", :url \"test url\"}}
-; "
-
-
-; ===============================
-
-; Merge two remote resources
-
-; Let's say we're looking to setup a new headquarters and want to create a heatmap of all US Counties to evaluate local markets that fit our existing customer demographic profiles. This tool will leverage two APIs:
+; Let's do something a bit more interesting and use `core.async`. Let's say we're looking to setup a new headquarters and want to create a heatmap of all US Counties to evaluate local markets that fit our existing customer demographic profiles. This tool will leverage two APIs:
 ; - Census Statistics, which has a public API (that you can use without a [key](https://api.census.gov/data/key_signup.html) for a pretty generous number of calls per month).)
 
 ; - A simple call to a raw GeoJSON file
@@ -240,32 +211,61 @@
 ;   "88__/  "88_-~  888     "88___/        "88_-888 \_88P    /     888  888  '88__/
 ;                                                          _/
 
+
+(defn handle-progress [e]
+  (js/console.log (str "Progress (" (.-loaded e) "/" (.-total e) ")")))
+
 (defn get-json
   [base-url keywords? params]
   (let [=resp= (chan)
         args (merge
                {:response-format :json
-                ;:handler #(js/console.log (t->json-verbose %))
-                :handler #(put! =resp= % js/console.log)
-                :keywords? keywords?
-                :error-handler #(prn (str "error: " %))}
+                :handler #(put! =resp= % prn)
+                :error-handler #(prn (str "error: " %))
+                :progress-handler handle-progress}
+               (when-let [keywords? {:keywords? keywords?}]
+                 keywords?)
                (when-let [params {:params params}]
                  params))]
     (do
       (GET base-url args)
       =resp=)))
 
-
-
-
 ;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
-(get-json
-  "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
-  false)
 (go
   (->
     (get-json
-      "https://api.census.gov/data/2016/acs/acs5?get=NAME,B01001_001E&for=county:*&in=state:01"
+      "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514"
+      false)
+    (<!)
+    (basic-success-handler)))
+;;=>
+;{"results"
+; [{"id" "1007518", "marketname" "4.3 Pensacola Growers' Retail Farmers' Market"}
+;  {"id" "1011160", "marketname" "6.3 Santa Rosa Farmers Market"}
+;  {"id" "1005683", "marketname" "6.5 The Market @ Saint Monica's"}
+;  {"id" "1004835", "marketname" "7.7 Palafox Market"}
+;  {"id" "1007779", "marketname" "8.2 Port City Market"}
+;  {"id" "1006840", "marketname" "13.6 Riverwalk Market"}
+;  {"id" "1011667", "marketname" "17.7 Perdido Farmers Market"}
+;  {"id" "1004049", "marketname" "22.9 Elberta Farmer's Market"}
+;  {"id" "1004401", "marketname" "27.8 Chicago Street Farmers Market"}
+;  {"id" "1004086", "marketname" "31.4 Alabama Gulf Coast Market"}
+;  {"id" "1005971", "marketname" "33.0 Flomaton Farmers Market"}
+;  {"id" "1001372", "marketname" "37.0 Okaloosa County Farmers Market"}
+;  {"id" "1011967", "marketname" "37.0 Akers of Strawberries"}
+;  {"id" "1001373", "marketname" "37.2 Fort Walton Beach Farmers Market"}
+;  {"id" "1000051", "marketname" "39.6 Fairhope Outdoor Farm Market"}
+;  {"id" "1001508", "marketname" "43.5 Crestview Farmers Market"}
+;  {"id" "1001610", "marketname" "44.9 Brewton Farmers Market"}
+;  {"id" "1003137", "marketname" "52.0 Halls Mill Road Farmers Market"}
+;  {"id" "1010546", "marketname" "54.8 Raw and Juicy Farmers Market"}]}
+
+;; This large (@20M) console.log breaks Atom. Works in Intellij with Cursive Plugin
+(go
+  (->
+    (get-json
+      "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
       false)
     (<!)
     (prn)))
@@ -320,7 +320,7 @@
 
 (defn get-stats
   "Composes a call and calls Census' Statistics API"
-  [{:keys [vintage source geography variables key] :as args} channel]
+  [{:keys [vintage source geography variables key] :as args}]
   (let [call (stats-url-builder args)]
     (go
       (->
