@@ -326,6 +326,7 @@
         (get-json->put! call false)
         (<!)
         (format-stats :keywords) ;; <<- See note on "threading" above
+        (vec)
         (pprint)))))
 
 ; EXAMPLES:
@@ -335,11 +336,11 @@
             :variables ["B01001_001E" "B01001_001M"]
             :key stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-; ({:B01001_001E "3111",
-;  :B01001_001M "369",
-;  :state "01",
-;  :county "073",
-;  :tract "000100"})
+; [{:B01001_001E "3111",
+;   :B01001_001M "369",
+;   :state "01",
+;   :county "073",
+;   :tract "000100"}]
 
 (get-stats {:vintage "2016"
             :sourcePath ["acs" "acs5"]
@@ -347,17 +348,83 @@
             :variables ["B01001_001E"]
             :key stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-;({:B01001_001E "55049", :state "01", :county "001"
+; [{:B01001_001E "55049", :state "01", :county "001"
 ;  {:B01001_001E "199510", :state "01", :county "003"}
 ;  {:B01001_001E "26614", :state "01", :county "005"}
 ;  {:B01001_001E "22572", :state "01", :county "007"}
 ;  {:B01001_001E "57704", :state "01", :county "009"}
 ;  {:B01001_001E "10552", :state "01", :county "011"}
-; ...
+; ...]
 (get-stats {:vintage "2016"
             :sourcePath ["acs" "acs5"]
             :geoHierarchy {:state "01"}
             :variables ["B01001_001E"]
             :key stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-;({:B01001_001E "4841164", :state "01"})
+;[{:B01001_001E "4841164", :state "01"}]
+
+; Now, we have to manipulate these data a little bit more to prepare them t
+
+
+(def stats-data [{:B01001_001E "55049", :state "01", :county "001"}
+                 {:B01001_001E "199510", :state "01", :county "003"}
+                 {:B01001_001E "26614", :state "01", :county "005"}
+                 {:B01001_001E "22572", :state "01", :county "007"}
+                 {:B01001_001E "57704", :state "01", :county "009"}
+                 {:B01001_001E "10552", :state "01", :county "011"}])
+
+(def geojson-data {:type "FeatureCollection",
+                   :features [{:type "Feature",
+                               :properties {:STATEFP "01",
+                                            :LSAD "06",
+                                            :COUNTYNS "00161528",
+                                            :AFFGEOID "0500000US01005",
+                                            :GEOID "01005",
+                                            :AWATER 50864677,
+                                            :COUNTYFP "005",
+                                            :NAME "Barbour",
+                                            :ALAND 2291820706},
+                               :geometry {:type "Polygon",
+                                          :coordinates
+                                          [[[-85.748032 31.619181]
+                                            [-85.745435 31.618898]
+                                            [-85.742651 31.621259]]]}}]})
+
+; Transformed stats map
+(def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
+              {:01005 {:properties {:B01001_001E "26614"}}}])
+
+(keys {:01001 {:properties {:B01001_001E "55049"}}})
+; Transformed geojson map
+(def geo-x [{:01005 {:type "Feature",
+                       :properties {:STATEFP "01",
+                                    :LSAD "06",
+                                    :COUNTYNS "00161528",
+                                    :AFFGEOID "0500000US01005",
+                                    :GEOID "01005",
+                                    :AWATER 50864677,
+                                    :COUNTYFP "005",
+                                    :NAME "Barbour",
+                                    :ALAND 2291820706},
+                       :geometry {:type "Polygon",
+                                  :coordinates
+                                  [[[-85.748032 31.619181]
+                                    [-85.745435 31.618898]
+                                    [-85.742651 31.621259]]]}}}
+            {:01003 {:type "Feature",
+                     :properties {:STATEFP "01",
+                                  :LSAD "06",
+                                  :COUNTYNS "00161528",
+                                  :AFFGEOID "0500000US01005",
+                                  :GEOID "01003",
+                                  :AWATER 50864677,
+                                  :COUNTYFP "005",
+                                  :NAME "Barbour",
+                                  :ALAND 2291820706},
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                [[[-85.748032 31.619181]
+                                  [-85.745435 31.618898]
+                                  [-85.742651 31.621259]]]}}}])
+
+(for [[x maps] (group-by keys (concat geo-x stats-x ))] (apply merge-with merge maps))
