@@ -1,9 +1,9 @@
 (ns http.core
-  (:require  [cljs.core.async :refer [chan put! take! >! <! buffer dropping-buffer sliding-buffer timeout close! alts!]]
+  (:require  [cljs.core.async :refer [chan put! take! >! <! timeout close! alts!]]
              [cljs.core.async :refer-macros [go go-loop alt!]]
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
-             [oops.core :as ops :refer [oget]]
+             [oops.core :as obj]
              [clojure.string :as s]
              [cljs.pprint :refer [pprint]]
              ["dotenv" :as env]
@@ -51,11 +51,9 @@
 ; :response-format json
 ; ===============================
 
-(def single-sushi-url "http://api.sushicount.com/add-piece-of-sushi/0")
-
 (defn get-sushi [format handler keywords?]
   (GET
-    single-sushi-url
+    "http://api.sushicount.com/add-piece-of-sushi/0"
     {:handler handler
      :error-handler #(prn (str "bad sushi: " %))
      :response-format format
@@ -87,13 +85,8 @@
   (let [w (t/writer :json)]
     (t/write w t)))
 
-(defn transit-handler [r]
-  (->>
-    (t->json r)
-    (prn)))
-
 ; keywords don't apply to :transit
-(get-sushi :transit transit-handler)
+(get-sushi :transit #(->> (t->json %) (prn)))
 ;;=> "[\"^ \",\"pieces_of_sushi\",1]"
 
 ; ===============================
@@ -104,40 +97,15 @@
   (let [w (t/writer :json-verbose)]
     (t/write w t)))
 
-(defn json-verbose [r]
-  (->>
-    (t->json-verbose r)
-    (prn)))
-
-(get-sushi :transit json-verbose)
+(get-sushi :transit #(->> (t->json-verbose %) (prn)))
 ;;=> "{\"pieces_of_sushi\":1}"
 
-; ===============================
-; Using use js/console.log to see actual stringified json
-; ===============================
-
 ; must use js/console.log to get non stringified json
-(defn json-verbose-pretty [response]
-  (->>
-    (t->json-verbose response)
-    (js/console.log)))
-
-; get actual json in console (you can eveen add ):
-(get-sushi :transit json-verbose-pretty)
+(get-sushi :transit #(->> (t->json-verbose %) (js/console.log)))
 ;;=> {"pieces_of_sushi":1}
 
-; ===============================
-; Using use js/JSON.parse to return a JS Object
-; ===============================
-
 ; For JavaScript digestion, use JSON.parse for easy data access
-(defn js-obj [response]
-  (->>
-    (t->json-verbose response)
-    (js/JSON.parse)
-    (js/console.log)))
-
-(get-sushi :transit js-obj)
+(get-sushi :transit #(->> (t->json-verbose %) (js/JSON.parse) (js/console.log)))
 ;;=> { pieces_of_sushi: 1 }
 
 
@@ -145,30 +113,20 @@
 
 ; We'll add the `:params` argument map to our `cljs-ajax` request to provide some interface into the API. Also, since we want to do something with these data in Clojure(script), let's keyword-ize the response.
 
-; https://api.census.gov/data/2016/zbp?get=EMP,GEO_TTL&for=zipcode:*
-
-; (defn census-base-url "https://api.census.gov/data")
-
-(def usda-base-url "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch")
-
-(defn basic-error-handler [error] (prn (str "Error!: " error)))
-
-(defn basic-success-handler [response] (pprint response))
-
 ; The `zipcode` argument will translate the `:zip` key into a parameter for the REST API:
 ; I.e.: https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch`?` `zip=` `zipcode`
 
-(defn get-markets [format handler keywords? zipcode]
+(defn get-markets [format zipcode keywords?]
   (GET
-    usda-base-url
+    "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch"
     {:response-format format
-     :handler handler
+     :handler #(pprint %)
      :keywords? keywords?
-     :error-handler basic-error-handler
+     :error-handler #(prn (str "Error!: " %))
      :params {:zip zipcode}}))
 
 
-(get-markets :json basic-success-handler true 32514)
+(get-markets :json 32514 true)
 ;;=>
 ; {:results
 ;  [{:id "1007518", :marketname "4.3 Pensacola Growers' Retail Farmers' Market"}
@@ -191,6 +149,7 @@
 ;   {:id "1003137", :marketname "52.0 Halls Mill Road Farmers Market"}
 ;   {:id "1010546", :marketname "54.8 Raw and Juicy Farmers Market"}]}
 
+(get-markets :json 32514 false)
 
 ; ===============================
 ; Merge two remote resources
@@ -206,14 +165,13 @@
 ;   "88__/  "88_-~  888     "88___/        "88_-888 \_88P    /     888  888  '88__/
 ;                                                          _/
 
-(defn get-json
+(defn get-json->put!
   [base-url keywords? params]
   (let [=resp= (chan)
         args (merge
-               {:response-format :json
-                ;:handler #(put! =resp= % (fn [r] (prn (str "put? " r))))
-                :handler #(put! =resp= % prn)
-                :error-handler #(prn (str "error: " %))}
+               {:response-format  :json
+                :handler          #(put! =resp= %)
+                :error-handler    #(prn (str "ERROR: " %))}
                (when-let [keywords? {:keywords? keywords?}]
                  keywords?)
                (when-let [params {:params params}]
@@ -223,66 +181,68 @@
       =resp=)))
 
 ;; Now that we're using `core.async`, we'll have to move our success-handler out of `cljs-ajax` in order  for the response that is put into the channel to be handled once it is taken out. Observe:
+
 (go
   (->
-    (get-json
-      "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514"
-      false)
+    (get-json->put! "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514" true)
     (<!)
     (pprint)))
-;;=>
-;{"results"
-; [{"id" "1007518", "marketname" "4.3 Pensacola Growers' Retail Farmers' Market"}
-;... same as before
-;  {"id" "1010546", "marketname" "54.8 Raw and Juicy Farmers Market"}]}
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+;{:results
+; [{:id "1007518",
+;   :marketname "4.3 Pensacola Growers' Retail Farmers' Market"}
+;  {:id "1011160", :marketname "6.3 Santa Rosa Farmers Market"}
+;  {:id "1005683", :marketname "6.5 The Market @ Saint Monica's"}
+;  {:id "1004835", :marketname "7.7 Palafox Market"}
+;  {:id "1007779", :marketname "8.2 Port City Market"}
+;  {:id "1006840", :marketname "13.6 Riverwalk Market"}
+;  {:id "1011667", :marketname "17.7 Perdido Farmers Market"}
+;  {:id "1004049", :marketname "22.9 Elberta Farmer's Market"}
+;  {:id "1004401", :marketname "27.8 Chicago Street Farmers Market"}
+;  {:id "1004086", :marketname "31.4 Alabama Gulf Coast Market"}
+;  {:id "1005971", :marketname "33.0 Flomaton Farmers Market"}
+;  {:id "1001372", :marketname "37.0 Okaloosa County Farmers Market"}
+;  {:id "1011967", :marketname "37.0 Akers of Strawberries"}
+;  {:id "1001373", :marketname "37.2 Fort Walton Beach Farmers Market"}
+;  {:id "1000051", :marketname "39.6 Fairhope Outdoor Farm Market"}
+;  {:id "1001508", :marketname "43.5 Crestview Farmers Market"}
+;  {:id "1001610", :marketname "44.9 Brewton Farmers Market"}
+;  {:id "1003137", :marketname "52.0 Halls Mill Road Farmers Market"}
+;  {:id "1010546", :marketname "54.8 Raw and Juicy Farmers Market"}]}
 
 ;; This will also work for very large payloads.
-
-
 (go
   (->
-    (get-json
-      "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json"
-      false)
+    (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
     (<!)
     (pprint)))
-
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-; "put? true"
-; {"type" "FeatureCollection",
-;  "features"
-;  [{"type" "Feature",
-;    "properties"
-;    {"LSAD" "06",
-;     "COUNTYNS" "00161528",
-;     "NAME" "Barbour",
-;     "GEOID" "01005",
-;     "STATEFP" "01",
-;     "ALAND" 2291820706,
-;     "AFFGEOID" "0500000US01005",
-;     "AWATER" 50864677,
-;     "COUNTYFP" "005"},
-;    "geometry"
-;    {"type" "Polygon",
-;     "coordinates"
-;     [[[-85.748032 31.619181]
-;       [-85.745435 31.618898]
+;{:type "FeatureCollection",
+; :features
+;  [{:type "Feature",
+;    :properties
+;     {:STATEFP "01",}
+;      :LSAD "06",
+;      :COUNTYNS "00161528",
+;      :AFFGEOID "0500000US01005",
+;      :GEOID "01005",
+;      :AWATER 50864677,
+;      :COUNTYFP "005",
+;      :NAME "Barbour",
+;      :ALAND 2291820706},
+;    :geometry
+;     {:type "Polygon",}
+;      :coordinates
+;      [[[-85.748032 31.619181]
+;        [-85.745435 31.618898]
+;        [-85.742651 31.621259]
+;        [-85.74174 31.619403]
+;        [-85.739813 31.62181]
+;        [-85.739921 31.623322]
+;        [-85.736932 31.623691]
+;        [-85.731172 31.62994]
+;        [-85.729832 31.632373]
 ;       ...
-
-; ===============================
-; Aside: Test the Might of your Editor :D
-
-;; WARNING: This large (@20M) file might freeze up your machine. For me, the console.log broke my default editor (Atom), so I had to switch to the Intellij IDEA with Cursive Plugin, which works. Be warned that even when this did work, it took about 2 minutes.
-
-(go
-  (->
-    (get-json
-      "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson"
-      false)
-    (<!)
-    (pprint)))
-
-; ===============================
 
 
 ; You may be asking yourself "why would we want to use `core.async` with an http request? Why not just use callbacks?" Well, you could use callbacks, with futures (promises), but let's say we want to build in some sophisticated data transformations over your response.
@@ -298,24 +258,24 @@
 ; A couple of helper functions for building a proper URL string
 ; ===============================
 
-; We will have to do some "wrangling" with these data in order to get what we need: A GeoJSON payload with statistics merged into the "properties" attribute. This section is not important to your understanding of either `core.async` or `cljs-ajax` and can be comfortably skipped. However, we will need this in order to do the cool multi-API data munging later.
+; Unfortunately, Census' statistics API URL structure does not follow any of the conventions supported natively in `cljs-ajax`s `:vec-strategy` schemes (`:java`, `:rails`, `:indexed`). Thus, in order to make our calls to this API, we'll build a query string builder function.
+;
+; This section is not important to your understanding of either `core.async` or `cljs-ajax` and can be comfortably skipped. However, if you're target API does not conform to the `:vec-strategy` schemes, it might be handy for you to see some string manipulation techniques for putting together a URL.
 
-(def stats-key (ops/oget (env/load) ["parsed" "Census_Key_Pro"]))
-
-(def stats-base "https://api.census.gov/data/")
 
 (defn vec-pair->str [pair]
   (subs (str (s/join ":" pair)) 1))
 
-; TEST
+;; EXAMPLE:
 (vec-pair->str [:state "01"])
-;;=> "state:01"
+;; Turns => [:state "01"] ;; into => "state:01"
 
 (defn stats-url-builder
   "Composes a URL to call Census' statistics API"
   [{:keys [vintage sourcePath geoHierarchy variables key]}]
   (str
-    stats-base vintage
+    "https://api.census.gov/data/"
+    vintage
     "/" (s/join "/" sourcePath)
     "?get=" (s/join "," variables)
     (if (<= 2 (count geoHierarchy))
@@ -324,59 +284,80 @@
       (str "&for=" (vec-pair->str (first geoHierarchy))))
     "&key=" key))
 
-; TEST
+(def stats-key (obj/oget (env/load) ["parsed" "Census_Key_Pro"]))
+
+;; EXAMPLE:
 (stats-url-builder {:vintage "2016"
                     :sourcePath ["acs" "acs5"]
-                    :geoHierarchy {:state "01" :county "073" :tract "00100"}
+                    :geoHierarchy {:state "01" :county "073" :tract "000100"}
                     :variables ["B01001_001E" "B01001_001M"]
-                    :key stats-key})
-;;=> "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:000100&key=<key>"
-; Works :)
+                    :key stats-key}) ;; input your key
+
+;; Produces => "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:00100&key=6980d91653a1f78acd456d9187ed28e23ea5d4e3"
+
+;; DISSECTED =>
+;; "https://api.census.gov/data/
+;; 2016                                        ; `vintage`
+;; /acs/acs5                                   ; joined `sourcePath` array
+;; ?get= B01001_001E,B01001_001M               ; joined `variables` array
+;; &in=state:01%20county:073&for=tract:000100  ; `geoHierarchy` map is larger than 1 k/v pair
+;; &key=<key>"                                 ; get key from consumer
 
 ; ===============================
 ; Wrangling the Census statistics' API response into a proper map
 ; ===============================
 
-; The response format of the Census statistics' API is a csv-like JSON format, which will make it difficult to work with despite it's clear advantage in terms of payload size. Let's create a function that takes the top row as the labels and zipmap them to the rest of the rows of the response:
+; The response format of the Census statistics' API is a csv-like JSON format, which will make it difficult to work with despite it's smaller payload size. Let's create a function that takes the top row as the labels and zipmap them to the rest of the rows of the response:
 
 ; [Inspiration](https://github.com/mihi-tr/csv-map/blob/master/src/csv_map/core.clj)
 
-(defn parse-stats-response [k c]
-  (if (= :keywords k)
-    (map (partial zipmap (vec (map keyword (first c)))) (rest c))
-    (map (partial zipmap (first c)) (rest c))))
-
-(parse-stats-response [["B01001_001E" "B01001_001M" "state" "county" "tract"] ["3111" "369" "01" "073" "000100"]] :keywords)
+;; Note: When using "threading" macros (`->` & `->>`) the value that is thread through the functions is passed as the FIRST argument, thus we're placing `rows` ahead of the `key` argument:
+(defn format-stats [rows key]
+  (if (= :keywords key)
+    (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
+    (map (partial zipmap (first rows)) (rest rows))))
 
 (defn get-stats
   "Composes a call and calls Census' Statistics API"
-  [{:keys [vintage source geography variables key] :as args} keywords?]
+  [args]
   (let [call (stats-url-builder args)]
     (go
       (->
-        (get-json call false)
+        (get-json->put! call false)
         (<!)
-        (parse-stats-response keywords?)
+        (format-stats :keywords) ;; <<- See note on "threading" above
         (pprint)))))
 
-; TESTS
-(get-stats{:vintage "2016"
-           :sourcePath ["acs" "acs5"]
-           :geoHierarchy {:state "01" :county "073" :tract "000100"}
-           :variables ["B01001_001E" "B01001_001M"]
-           :key stats-key} :keywords)
-;;=> ({:B01001_001E "3111", :B01001_001M "369", :state "01", :county "073", :tract "000100"})
+; EXAMPLES:
+(get-stats {:vintage "2016"
+            :sourcePath ["acs" "acs5"]
+            :geoHierarchy {:state "01" :county "073" :tract "000100"}
+            :variables ["B01001_001E" "B01001_001M"]
+            :key stats-key})
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+; ({:B01001_001E "3111",
+;  :B01001_001M "369",
+;  :state "01",
+;  :county "073",
+;  :tract "000100"})
 
-(get-stats{:vintage "2016"
-           :sourcePath ["acs" "acs5"]
-           :geoHierarchy {:state "01" :county "073"}
-           :variables ["B01001_001E" "B01001_001M"]
-           :key stats-key} :keywords)
-;;=> ({:B01001_001E "659096", :B01001_001M "-555555555", :state "01", :county "073"})
-
-(get-stats{:vintage "2016"
-           :sourcePath ["acs" "acs5"]
-           :geoHierarchy {:state "*"}
-           :variables ["B01001_001E"]
-           :key stats-key} :keywords)
-
+(get-stats {:vintage "2016"
+            :sourcePath ["acs" "acs5"]
+            :geoHierarchy {:state "01" :county "*"}
+            :variables ["B01001_001E"]
+            :key stats-key})
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+;({:B01001_001E "55049", :state "01", :county "001"
+;  {:B01001_001E "199510", :state "01", :county "003"}
+;  {:B01001_001E "26614", :state "01", :county "005"}
+;  {:B01001_001E "22572", :state "01", :county "007"}
+;  {:B01001_001E "57704", :state "01", :county "009"}
+;  {:B01001_001E "10552", :state "01", :county "011"}
+; ...
+(get-stats {:vintage "2016"
+            :sourcePath ["acs" "acs5"]
+            :geoHierarchy {:state "01"}
+            :variables ["B01001_001E"]
+            :key stats-key})
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+;({:B01001_001E "4841164", :state "01"})
