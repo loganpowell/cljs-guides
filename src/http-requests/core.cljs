@@ -329,6 +329,7 @@
         (vec)
         (pprint)))))
 
+
 ; EXAMPLES:
 (get-stats {:vintage "2016"
             :sourcePath ["acs" "acs5"]
@@ -373,6 +374,8 @@
                  {:B01001_001E "57704", :state "01", :county "009"}
                  {:B01001_001E "10552", :state "01", :county "011"}])
 
+(for [each-of stats-data] (type each-of)) ;;=> ...cljs.core/PersistentArrayMap...s
+
 (def geojson-data {:type "FeatureCollection",
                    :features [{:type "Feature",
                                :properties {:STATEFP "01",
@@ -392,7 +395,9 @@
 
 ; Transformed stats map
 (def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
-              {:01005 {:properties {:B01001_001E "26614"}}}])
+              {:01005 {:properties {:B01001_001E "26614"
+                                    :test1 "string"
+                                    :test2 91}}}])
 
 (keys {:01001 {:properties {:B01001_001E "55049"}}})
 ; Transformed geojson map
@@ -427,4 +432,67 @@
                                   [-85.745435 31.618898]
                                   [-85.742651 31.621259]]]}}}])
 
-(for [[x maps] (group-by keys (concat geo-x stats-x ))] (apply merge-with merge maps))
+;; Deep Merge function [stolen](https://gist.github.com/danielpcox/c70a8aa2c36766200a95)
+
+(defn deep-merge [v & vs]
+  (letfn [(rec-merge [v1 v2]
+            (if (and (map? v1) (map? v2))
+              (merge-with deep-merge v1 v2)
+              v2))]
+    (if (some identity vs)
+      (reduce #(rec-merge %1 %2) v vs)
+      v)))
+
+(for [[each-of maps] (group-by keys (concat stats-x geo-x))]
+  (apply deep-merge maps))
+
+(defn stats-xform
+  "
+  Takes a single result map from the Census stats API and an integer denoting the number of variables the user requested.
+  The integer is used to target the non-variable geographic IDs in the result, which are combined into a UID key.
+  The function constructs a new map with a hierarchy containing two new parent keys.
+  The top-level parent key is the composed key, which will serve in the `deep-merge` to `group-by`.
+  The second-level parent key is statically set to `:properties`.
+  The original map is nested into the lowest level of the new map.
+  This new hierarchy will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
+  "
+  [res-map path-to]
+  {(keyword (reduce str (vals (take-last (- (count res-map) path-to) res-map))))
+   { :properties res-map}})
+
+;; Example:
+(stats-xform {:B01001_001E "55049", :state "01", :county "001"} 1)
+;;=> {:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+
+(defn merge-geo-stats
+  "Calls the Census' statistics API and a raw GeoJSON file, then deep-merges their results to create a 'FeatureCollection' with the stats in appropriate Feature's 'properties'"
+  [args]
+  (let [call (stats-url-builder args)
+        vars (count (get args :variables))
+        =features= (chan)]
+    (go
+      (->
+        (get-json->put! call false)
+        (<!)
+        (format-stats :keywords) ;; <<- See note on "threading" above
+        (vec)
+        (pprint)))))
+
+(def example-args {:vintage "2016"
+                   :sourcePath ["acs" "acs5"]
+                   :geoHierarchy {:state "01" :county "*"}
+                   :variables ["B01001_001E" "2" "3"]
+                   :key stats-key})
+(count (get example-args :variables))
+(count example-args)
+(deep-merge-geo-stats {:vintage "2016"
+                       :sourcePath ["acs" "acs5"]
+                       :geoHierarchy {:state "01" :county "*"}
+                       :variables ["B01001_001E"]
+                       :key stats-key})
+(go
+  (->
+    (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
+    (<!)
+    (get :features)
+    (pprint)))
