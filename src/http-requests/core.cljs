@@ -1,5 +1,5 @@
 (ns http.core
-  (:require  [cljs.core.async :refer [chan put! take! >! <! timeout close! alts!]]
+  (:require  [cljs.core.async :refer [chan put! take! >! <! pipe timeout close! alts!]]
              [cljs.core.async :refer-macros [go go-loop alt!]]
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
@@ -356,6 +356,7 @@
 ;  {:B01001_001E "57704", :state "01", :county "009"}
 ;  {:B01001_001E "10552", :state "01", :county "011"}
 ; ...]
+
 (get-stats {:vintage "2016"
             :sourcePath ["acs" "acs5"]
             :geoHierarchy {:state "01"}
@@ -364,17 +365,12 @@
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ;[{:B01001_001E "4841164", :state "01"}]
 
-; Now, we have to manipulate these data a little bit more to prepare them t
-
-
 (def stats-data [{:B01001_001E "55049", :state "01", :county "001"}
                  {:B01001_001E "199510", :state "01", :county "003"}
                  {:B01001_001E "26614", :state "01", :county "005"}
                  {:B01001_001E "22572", :state "01", :county "007"}
                  {:B01001_001E "57704", :state "01", :county "009"}
                  {:B01001_001E "10552", :state "01", :county "011"}])
-
-(for [each-of stats-data] (type each-of)) ;;=> ...cljs.core/PersistentArrayMap...s
 
 (def geojson-data {:type "FeatureCollection",
                    :features [{:type "Feature",
@@ -393,29 +389,29 @@
                                             [-85.745435 31.618898]
                                             [-85.742651 31.621259]]]}}]})
 
+;; Example
 ; Transformed stats map
 (def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
               {:01005 {:properties {:B01001_001E "26614"
                                     :test1 "string"
                                     :test2 91}}}])
 
-(keys {:01001 {:properties {:B01001_001E "55049"}}})
 ; Transformed geojson map
 (def geo-x [{:01005 {:type "Feature",
-                       :properties {:STATEFP "01",
-                                    :LSAD "06",
-                                    :COUNTYNS "00161528",
-                                    :AFFGEOID "0500000US01005",
-                                    :GEOID "01005",
-                                    :AWATER 50864677,
-                                    :COUNTYFP "005",
-                                    :NAME "Barbour",
-                                    :ALAND 2291820706},
-                       :geometry {:type "Polygon",
-                                  :coordinates
-                                  [[[-85.748032 31.619181]
-                                    [-85.745435 31.618898]
-                                    [-85.742651 31.621259]]]}}}
+                     :properties {:STATEFP "01",
+                                  :LSAD "06",
+                                  :COUNTYNS "00161528",
+                                  :AFFGEOID "0500000US01005",
+                                  :GEOID "01005",
+                                  :AWATER 50864677,
+                                  :COUNTYFP "005",
+                                  :NAME "Barbour",
+                                  :ALAND 2291820706},
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                    [[[-85.748032 31.619181
+                                        [-85.745435 31.618898]
+                                        [-85.742651 31.621259]]]]}}}
             {:01003 {:type "Feature",
                      :properties {:STATEFP "01",
                                   :LSAD "06",
@@ -428,23 +424,10 @@
                                   :ALAND 2291820706},
                      :geometry {:type "Polygon",
                                 :coordinates
-                                [[[-85.748032 31.619181]
-                                  [-85.745435 31.618898]
-                                  [-85.742651 31.621259]]]}}}])
+                                      [[[-85.748032 31.619181]
+                                        [-85.745435 31.618898]
+                                        [-85.742651 31.621259]]]}}}])
 
-;; Deep Merge function [stolen](https://gist.github.com/danielpcox/c70a8aa2c36766200a95)
-
-(defn deep-merge [v & vs]
-  (letfn [(rec-merge [v1 v2]
-            (if (and (map? v1) (map? v2))
-              (merge-with deep-merge v1 v2)
-              v2))]
-    (if (some identity vs)
-      (reduce #(rec-merge %1 %2) v vs)
-      v)))
-
-(for [[each-of maps] (group-by keys (concat stats-x geo-x))]
-  (apply deep-merge maps))
 
 (defn stats-xform
   "
@@ -456,35 +439,91 @@
   The original map is nested into the lowest level of the new map.
   This new hierarchy will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
   "
-  [res-map path-to]
-  {(keyword (reduce str (vals (take-last (- (count res-map) path-to) res-map))))
-   { :properties res-map}})
+  [all-keys vars-count]
+  {(keyword (reduce str (vals (take-last (- (count all-keys) vars-count) all-keys))))
+   {:properties all-keys}})
 
-;; Example:
+
+(defn stat-map-key)
+
+;; Example
 (stats-xform {:B01001_001E "55049", :state "01", :county "001"} 1)
 ;;=> {:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
 
+(defn stats-results-xform
+  [results vars-count]
+  (map #(stats-xform % vars-count) results))
+;; Example:
+(stats-results-xform stats-data 1)
+;;=>
+; ({:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+;  {:01003 {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
+;  {:01005 {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
+;  {:01007 {:properties {:B01001_001E "22572", :state "01", :county "007"}}}
+;  {:01009 {:properties {:B01001_001E "57704", :state "01", :county "009"}}}
+; ...)
+
+(defn comp-format-xform
+  (comp
+    (format-stats :keyword)
+    (stats-results-xform 1)))
+
+
+;; Deep Merge function [stolen](https://gist.github.com/danielpcox/c70a8aa2c36766200a95)
+(defn deep-merge
+  "Recursively merges two maps together along matching key paths. Implements `clojure/core.merge-with`."
+  [v & vs]
+  (letfn [(rec-merge [v1 v2]
+            (if (and (map? v1) (map? v2))
+              (merge-with deep-merge v1 v2)
+              v2))]
+    (if (some identity vs)
+      (reduce #(rec-merge %1 %2) v vs)
+      v)))
+
+(for [[each-of maps] (group-by keys (concat stats-x geo-x))]
+  (apply deep-merge maps))
+
+
+
 (defn merge-geo-stats
-  "Calls the Census' statistics API and a raw GeoJSON file, then deep-merges their results to create a 'FeatureCollection' with the stats in appropriate Feature's 'properties'"
+  "
+  Takes an arg map to configure a call the Census' statistics API as well as a matching GeoJSON file.
+  The match is based on `vintage` and `geoHierarchy` of the arg map.
+  The calls are spun up (simultaneously) into parallel `core.async` processes for speed.
+  Both calls return their results via a `core.async` channel (`chan`) - for later merger - via `put!`.
+  The results from the Census stats `chan` are passed into a local `chan` to store the state.
+  A `deep-merge` into the local `chan` combines the stats results with the GeoJSON values.
+  Note that the GeoJSON results can be a superset of the Census stats' results.
+  Thus, superfluous GeoJSON values are filtered out via a `remove` operation on the collection in the local `chan`.
+  "
   [args]
   (let [call (stats-url-builder args)
-        vars (count (get args :variables))
-        =features= (chan)]
+        vars-count (count (get args :variables))]
+        ;=features= (chan)]
     (go
       (->
         (get-json->put! call false)
         (<!)
-        (format-stats :keywords) ;; <<- See note on "threading" above
-        (vec)
+        ;(format-stats :keywords) ;; <<- See note on "threading" above
+        ;(vec)
+        ;(stats-results-xform vars-count)
+        (map (comp-format-xform vars-count))
         (pprint)))))
 
+(merge-geo-stats {:vintage "2016"
+                  :sourcePath ["acs" "acs5"]
+                  :geoHierarchy {:state "01" :county "*"}
+                  :variables ["B01001_001E"]
+                  :key stats-key})
+
+(get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
 (def example-args {:vintage "2016"
                    :sourcePath ["acs" "acs5"]
                    :geoHierarchy {:state "01" :county "*"}
                    :variables ["B01001_001E" "2" "3"]
                    :key stats-key})
-(count (get example-args :variables))
-(count example-args)
+
 (deep-merge-geo-stats {:vintage "2016"
                        :sourcePath ["acs" "acs5"]
                        :geoHierarchy {:state "01" :county "*"}
