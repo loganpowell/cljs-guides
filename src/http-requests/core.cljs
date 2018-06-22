@@ -152,6 +152,9 @@
 (get-markets :json 32514 false)
 
 ; ===============================
+; TODO: Move Transducers after chan here...
+; ===============================
+; ===============================
 ; Merge two remote resources
 ; ===============================
 
@@ -326,7 +329,7 @@
         (get-json->put! call false)
         (<!)
         (format-stats :keywords) ;; <<- See note on "threading" above
-        (vec)
+        ;(vec)
         (pprint)))))
 
 
@@ -439,35 +442,88 @@
   The original map is nested into the lowest level of the new map.
   This new hierarchy will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
   "
-  [all-keys vars-count]
-  {(keyword (reduce str (vals (take-last (- (count all-keys) vars-count) all-keys))))
-   {:properties all-keys}})
-
-
-(defn stat-map-key)
+  [-keys vars-count]
+  {(keyword (reduce str (vals (take-last (- (count -keys) vars-count) -keys))))
+   {:properties -keys}})
 
 ;; Example
 (stats-xform {:B01001_001E "55049", :state "01", :county "001"} 1)
 ;;=> {:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
 
-(defn stats-results-xform
-  [results vars-count]
-  (map #(stats-xform % vars-count) results))
-;; Example:
-(stats-results-xform stats-data 1)
-;;=>
-; ({:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
-;  {:01003 {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
-;  {:01005 {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
-;  {:01007 {:properties {:B01001_001E "22572", :state "01", :county "007"}}}
-;  {:01009 {:properties {:B01001_001E "57704", :state "01", :county "009"}}}
-; ...)
+; ===============================
+; TODO: START
+; ===============================
+
+; ~~~888~~~                                        888
+;    888    888-~\   /~~~8e  888-~88e  d88~\  e88~\888 888  888  e88~~\  e88~~8e  888-~\  d88~\
+;    888    888          88b 888  888 C888   d888  888 888  888 d888    d888  88b 888    C888
+;    888    888     e88~-888 888  888  Y88b  8888  888 888  888 8888    8888__888 888     Y88b
+;    888    888    C888  888 888  888   888D Y888  888 888  888 Y888    Y888    , 888      888D
+;    888    888     "88_-888 888  888 \_88P   "88_/888 "88_-888  "88__/  '88___/  888    \_88P
+;
+;
+
+; ===============================
+;; Example from [Renzo Borgatti](https://labs.uswitch.com/transducers-from-the-ground-up-the-practice/#customtransducers)
+
+(defn log [& [idx]]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([result] (rf result))
+      ([result el]
+       (let [n-step (if idx (str "Step: " idx ". ") "")]
+         (println (format "%sResult: %s, Item: %s" n-step result el)))
+       (rf result el)))))
+
+(sequence (log) [:a :b :c])
+;; Result: null, Item: :a
+;; Result: null, Item: :b
+;; Result: null, Item: :c
+;; (:a :b :c)
+
+;(defn format-stats [rows key]
+;  (if (= :keywords key)
+;    (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
+;
+
+(defn format-stats [rows key]
+  (if (= :keywords key)
+    (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
+    (map (partial zipmap (first rows)) (rest rows))))
+
+(defn xf-census->map [& [row]]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([result] (rf result))
+      ([result el]
+       (let [keys- (atom [])
+             initial? ()]
+         (if))
+       (map (partial zipmap (vec (map keyword (first el)))) (rest rows))))))
+
+; Read more on the [anatomy of transducers](https://bendyworks.com/blog/transducers-clojures-next-big-idea)
+  ; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
+; ===============================
+;(defn format-stats [rows key]
+;  (if (= :keywords key)
+;    (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
+;    (map (partial zipmap (first rows)) (rest rows))))
+
+(def xf-stats4merge
+  (map #(stats-xform 1% vars-count) results))
+
 
 (defn comp-format-xform
   (comp
     (format-stats :keyword)
     (stats-results-xform 1)))
 
+
+; ===============================
+; TODO: END
+; ===============================
 
 ;; Deep Merge function [stolen](https://gist.github.com/danielpcox/c70a8aa2c36766200a95)
 (defn deep-merge
