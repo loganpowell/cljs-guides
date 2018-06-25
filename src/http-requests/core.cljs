@@ -269,10 +269,6 @@
 (defn vec-pair->str [pair]
   (subs (str (s/join ":" pair)) 1))
 
-;; EXAMPLE:
-(vec-pair->str [:state "01"])
-;; Turns => [:state "01"] ;; into => "state:01"
-
 (defn stats-url-builder
   "Composes a URL to call Census' statistics API"
   [{:keys [vintage sourcePath geoHierarchy variables key]}]
@@ -476,35 +472,39 @@
            (reset! prep (vec (map keyword item)))
            (rf result (zipmap prev (vec item)))))))))
 
-(defn xf-census->map [coll]
-  (sequence xf-zip-census coll))
+(defn xf-census->map [coll vars-count]
+  (comp
+    (sequence xf-zip-census coll)
+    (stats-xform coll vars-count)))
+
 
 
 (defn get-json->xfput!
-  [base-url keywords? params]
-  (let [=resp= (chan 1 (map xf-census->map))
-        args (merge
-               {:response-format  :json
-                :handler          #(put! =resp= %)
-                :error-handler    #(prn (str "ERROR: " %))}
-               (when-let [keywords? {:keywords? keywords?}]
-                 keywords?)
-               (when-let [params {:params params}]
-                 params))]
-    (do
-      (GET base-url args)
-      =resp=)))
+  [url vars-count]
+  (let [=resp= (chan 1 (map #(xf-census->map % vars-count)))
+        args {:response-format  :json
+              :handler          #(put! =resp= %)
+              :error-handler    #(prn (str "ERROR: " %))
+              :keywords? false}]
 
+    (do
+      (GET url args)
+      =resp=)))
 
 (defn xf-census-get->map
   "Composes a call and calls Census' Statistics API"
   [args]
-  (let [call (stats-url-builder args)]
+  (let [url (stats-url-builder args)
+        vars-count (count (get args :variables))]
     (go
       (->
-        (get-json->xfput! call false)
+        (get-json->xfput! url vars-count)
         (<!)
         (pprint)))))
+
+(def test
+  (let [vars {:variables ["BOO"]}]
+    (pprint (count (get vars :variables)))))
 
 (xf-census-get->map {:vintage "2016"
                      :sourcePath ["acs" "acs5"]
