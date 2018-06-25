@@ -1,5 +1,5 @@
 (ns http.core
-  (:require  [cljs.core.async :refer [chan put! take! >! <! pipe timeout close! alts!]]
+  (:require  [cljs.core.async :as async :refer [chan put! take! >! <! pipe timeout close! alts!]]
              [cljs.core.async :refer-macros [go go-loop alt!]]
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
@@ -461,9 +461,7 @@
 (stats-xform {:B01001_001E "55049", :state "01", :county "001"} 1)
 ;;=> {:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
 
-; ===============================
-; TODO: START
-; ===============================
+;; Now this works, but we would be creating new collections with each passing transformation. How might we make this a bit more efficient? The answer is transducers!
 
 ; ~~~888~~~                                        888
 ;    888    888-~\   /~~~8e  888-~88e  d88~\  e88~\888 888  888  e88~~\  e88~~8e  888-~\  d88~\
@@ -509,6 +507,7 @@
        (rf result {(keyword (reduce str (vals (take-last (- (count item) vars-count) item))))
                    {:properties item}})))))
 
+;; `xf-stats-map` is a transducer, which means we can use it sans `()`s, while `xf-aug-stats` RETURNS a transducer, which requires us to wrap the function in `()`s to return that internal transducer.
 (defn xf-census->map [vars-count]
   (comp xf-stats-map (xf-aug-stats vars-count)))
 
@@ -538,18 +537,14 @@
                                     ["10552" "-555555555" "01" "011"]
                                     ["24013" "-555555555" "01" "133"]])
 
-(sequence (xf-census->map 2) [["B01001_001E" "B01001_001M" "state" "county"]
-                              ["55049" "-555555555" "01" "001"]
-                              ["199510" "-555555555" "01" "003"]
-                              ["26614" "-555555555" "01" "005"]
-                              ["22572" "-555555555" "01" "007"]
-                              ["57704" "-555555555" "01" "009"]
-                              ["10552" "-555555555" "01" "011"]
-                              ["24013" "-555555555" "01" "133"]])
 
+; ===============================
+; TODO: Figure out what form to put the transducer into for `chan` processing
+; http://blog.eikeland.se/2014/08/14/transducers/
+; ===============================
 (defn get-json->xfput!
   [url vars-count]
-  (let [=resp= (chan 1 (sequence (xf-census->map vars-count)))
+  (let [=resp= (chan 10 (xf-census->map vars-count))
         args {:response-format  :json
               :handler          #(put! =resp= %)
               :error-handler    #(prn (str "ERROR: " %))
@@ -579,23 +574,10 @@
                      :geoHierarchy {:state "01" :county "*"}
                      :variables ["B01001_001E"]
                      :key stats-key})
+;
 ; Read more on the [anatomy of transducers](https://bendyworks.com/blog/transducers-clojures-next-big-idea)
 ; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
 ; More [transducers](http://matthiasnehlsen.com/blog/2014/10/06/Building-Systems-in-Clojure-2/)
-; ===============================
-;(defn format-stats [rows key]
-;  (if (= :keywords key)
-;    (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
-;    (map (partial zipmap (first rows)) (rest rows))))
-
-(def xf-stats4merge
-  (map #(stats-xform 1% vars-count) results))
-
-
-(defn comp-format-xform
-  (comp
-    (format-stats :keyword)
-    (stats-results-xform 1)))
 
 
 ; ===============================
