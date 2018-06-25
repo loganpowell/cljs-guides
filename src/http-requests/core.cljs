@@ -187,7 +187,7 @@
 
 (go
   (->
-    (get-json->put! "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514" true)
+    (get-json->put! "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514" false)
     (<!)
     (pprint)))
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
@@ -302,6 +302,21 @@
 ;; &in=state:01%20county:073&for=tract:000100  ; `geoHierarchy` map is larger than 1 k/v pair
 ;; &key=<key>"                                 ; get key from consumer
 
+;; Census's statistics API doesn't return standard JSON and thus the`keywords?` argument doesn't make a difference
+(go
+  (->
+    (get-json->put! "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01&for=county:*")
+    (<!)
+    (pprint)))
+;;=> something like:
+;[["B01001_001E" "B01001_001M" "state" "county"]
+; ["55049" "-555555555" "01" "001"]
+; ["199510" "-555555555" "01" "003"]
+; ["26614" "-555555555" "01" "005"]
+; ["22572" "-555555555" "01" "007"]
+; ["57704" "-555555555" "01" "009"]
+; ["10552" "-555555555" "01" "011"]
+; ["24013" "-555555555" "01" "133"]]
 ; ===============================
 ; Wrangling the Census statistics' API response into a proper map
 ; ===============================
@@ -322,10 +337,10 @@
   (let [call (stats-url-builder args)]
     (go
       (->
-        (get-json->put! call false)
+        (get-json->put! call true)
         (<!)
-        ;(format-stats :keywords) ;; <<- See note on "threading" above
-        ;(vec)
+        (format-stats :keywords) ;; <<- See note on "threading" above
+        (vec)
         (pprint)))))
 
 
@@ -461,27 +476,80 @@
 
 ; ===============================
 
-(defn xf-zip-census [rf]
-  (let [prep (atom nil)]
+;; A stateful transducer is needed to change the behavior based on which item in the collection we are "on".
+(defn xf-stats-map [rf]
+  (let [prep (volatile! nil)]
     (fn
       ([] (rf))
       ([result] (rf result))
       ([result item]
        (let [prev @prep]
          (if (nil? prev)
-           (reset! prep (vec (map keyword item)))
+           (do
+             (vreset! prep (vec (map keyword item)))
+             nil)
            (rf result (zipmap prev (vec item)))))))))
 
-(defn xf-census->map [coll vars-count]
-  (comp
-    (sequence xf-zip-census coll)
-    (stats-xform coll vars-count)))
+;; If you want to pass an argument into your transducer, wrap it in another function, which takes the arg and returns a transducer containing it.
+(defn xf-aug-stats [vars-count]
+  "
+  Takes a single result map from the Census stats API and an integer denoting the number of variables the user requested.
+  The integer is used to target the non-variable geographic IDs in the result, which are combined into a UID key.
+  The function constructs a new map with a hierarchy containing two new parent keys.
+  The top-level parent key is the composed key, which will serve in the `deep-merge` to `group-by`.
+  The second-level parent key is statically set to `:properties`.
+  The original map is nested into the lowest level of the new map.
+  This new hierarchy will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
+  "
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([result] (rf result))
+      ([result item]
+       (rf result {(keyword (reduce str (vals (take-last (- (count item) vars-count) item))))
+                   {:properties item}})))))
 
+(defn xf-census->map [vars-count]
+  (comp xf-stats-map (xf-aug-stats vars-count)))
 
+(transduce xf-stats-map conj [["B01001_001E" "B01001_001M" "state" "county"]
+                              ["55049" "-555555555" "01" "001"]
+                              ["199510" "-555555555" "01" "003"]
+                              ["26614" "-555555555" "01" "005"]
+                              ["22572" "-555555555" "01" "007"]
+                              ["57704" "-555555555" "01" "009"]
+                              ["10552" "-555555555" "01" "011"]
+                              ["24013" "-555555555" "01" "133"]])
+
+(transduce (xf-aug-stats 2) conj [ {:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}
+                                  {:B01001_001E "199510", :B01001_001M "-555555555", :state "01", :county "003"}
+                                  {:B01001_001E "26614", :B01001_001M "-555555555", :state "01", :county "005"}
+                                  {:B01001_001E "22572", :B01001_001M "-555555555", :state "01", :county "007"}
+                                  {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}
+                                  {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}
+                                  {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}])
+
+(transduce (xf-census->map 2) conj [["B01001_001E" "B01001_001M" "state" "county"]
+                                    ["55049" "-555555555" "01" "001"]
+                                    ["199510" "-555555555" "01" "003"]
+                                    ["26614" "-555555555" "01" "005"]
+                                    ["22572" "-555555555" "01" "007"]
+                                    ["57704" "-555555555" "01" "009"]
+                                    ["10552" "-555555555" "01" "011"]
+                                    ["24013" "-555555555" "01" "133"]])
+
+(sequence (xf-census->map 2) [["B01001_001E" "B01001_001M" "state" "county"]
+                              ["55049" "-555555555" "01" "001"]
+                              ["199510" "-555555555" "01" "003"]
+                              ["26614" "-555555555" "01" "005"]
+                              ["22572" "-555555555" "01" "007"]
+                              ["57704" "-555555555" "01" "009"]
+                              ["10552" "-555555555" "01" "011"]
+                              ["24013" "-555555555" "01" "133"]])
 
 (defn get-json->xfput!
   [url vars-count]
-  (let [=resp= (chan 1 (map #(xf-census->map % vars-count)))
+  (let [=resp= (chan 1 (sequence (xf-census->map vars-count)))
         args {:response-format  :json
               :handler          #(put! =resp= %)
               :error-handler    #(prn (str "ERROR: " %))
