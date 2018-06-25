@@ -464,33 +464,6 @@
 ;
 
 ; ===============================
-;; Example from [Renzo Borgatti](https://labs.uswitch.com/transducers-from-the-ground-up-the-practice/#customtransducers)
-
-(defn log [& [idx]]
-  (fn [rf]
-    (fn
-      ([] (rf))
-      ([result] (rf result))
-      ([result el]
-       (let [n-step (if idx (str "Step: " idx ". ") "")]
-         (println (format "%sResult: %s, Item: %s" n-step result el)))
-       (rf result el)))))
-
-(sequence (log) [:a :b :c])
-;; Result: null, Item: :a
-;; Result: null, Item: :b
-;; Result: null, Item: :c
-;; (:a :b :c)
-
-;(defn format-stats [rows key]
-;  (if (= :keywords key)
-;    (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
-;
-
-(defn format-stats [rows key]
-  (if (= :keywords key)
-    (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
-    (map (partial zipmap (first rows)) (rest rows))))
 
 (defn xf-zip-census [rf]
   (let [prep (atom nil)]
@@ -506,8 +479,22 @@
 (defn xf-census->map [coll]
   (sequence xf-zip-census coll))
 
-(xf-zip-census [["B01001_001E" "B01001_001M" "state" "county" "tract"]
-                ["3111" "369" "01" "073" "000100"]])
+
+(defn get-json->xfput!
+  [base-url keywords? params]
+  (let [=resp= (chan 1 (map xf-census->map))
+        args (merge
+               {:response-format  :json
+                :handler          #(put! =resp= %)
+                :error-handler    #(prn (str "ERROR: " %))}
+               (when-let [keywords? {:keywords? keywords?}]
+                 keywords?)
+               (when-let [params {:params params}]
+                 params))]
+    (do
+      (GET base-url args)
+      =resp=)))
+
 
 (defn xf-census-get->map
   "Composes a call and calls Census' Statistics API"
@@ -515,10 +502,8 @@
   (let [call (stats-url-builder args)]
     (go
       (->
-        (get-json->put! call false)
+        (get-json->xfput! call false)
         (<!)
-        (xf-census->map)
-        ;(vec)
         (pprint)))))
 
 (xf-census-get->map {:vintage "2016"
