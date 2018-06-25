@@ -296,7 +296,7 @@
                     :variables ["B01001_001E" "B01001_001M"]
                     :key stats-key}) ;; input your key
 
-;; Produces => "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:00100&key=6980d91653a1f78acd456d9187ed28e23ea5d4e3"
+;; Produces => "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:000100&key=6980d91653a1f78acd456d9187ed28e23ea5d4e3"
 
 ;; DISSECTED =>
 ;; "https://api.census.gov/data/
@@ -328,7 +328,7 @@
       (->
         (get-json->put! call false)
         (<!)
-        (format-stats :keywords) ;; <<- See note on "threading" above
+        ;(format-stats :keywords) ;; <<- See note on "threading" above
         ;(vec)
         (pprint)))))
 
@@ -492,19 +492,43 @@
     (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
     (map (partial zipmap (first rows)) (rest rows))))
 
-(defn xf-census->map [& [row]]
-  (fn [rf]
+(defn xf-zip-census [rf]
+  (let [prep (atom nil)]
     (fn
       ([] (rf))
       ([result] (rf result))
-      ([result el]
-       (let [keys- (atom [])
-             initial? ()]
-         (if))
-       (map (partial zipmap (vec (map keyword (first el)))) (rest rows))))))
+      ([result item]
+       (let [prev @prep]
+         (if (nil? prev)
+           (reset! prep (vec (map keyword item)))
+           (rf result (zipmap prev (vec item)))))))))
 
+(defn xf-census->map [coll]
+  (sequence xf-zip-census coll))
+
+(xf-zip-census [["B01001_001E" "B01001_001M" "state" "county" "tract"]
+                ["3111" "369" "01" "073" "000100"]])
+
+(defn xf-census-get->map
+  "Composes a call and calls Census' Statistics API"
+  [args]
+  (let [call (stats-url-builder args)]
+    (go
+      (->
+        (get-json->put! call false)
+        (<!)
+        (xf-census->map)
+        ;(vec)
+        (pprint)))))
+
+(xf-census-get->map {:vintage "2016"
+                     :sourcePath ["acs" "acs5"]
+                     :geoHierarchy {:state "01" :county "*"}
+                     :variables ["B01001_001E"]
+                     :key stats-key})
 ; Read more on the [anatomy of transducers](https://bendyworks.com/blog/transducers-clojures-next-big-idea)
-  ; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
+; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
+; More [transducers](http://matthiasnehlsen.com/blog/2014/10/06/Building-Systems-in-Clojure-2/)
 ; ===============================
 ;(defn format-stats [rows key]
 ;  (if (= :keywords key)
