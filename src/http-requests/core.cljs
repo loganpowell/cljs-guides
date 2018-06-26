@@ -133,24 +133,19 @@
 ;   {:id "1011160", :marketname "6.3 Santa Rosa Farmers Market"}
 ;   {:id "1005683", :marketname "6.5 The Market @ Saint Monica's"}
 ;   {:id "1004835", :marketname "7.7 Palafox Market"}
-;   {:id "1007779", :marketname "8.2 Port City Market"}
-;   {:id "1006840", :marketname "13.6 Riverwalk Market"}
-;   {:id "1011667", :marketname "17.7 Perdido Farmers Market"}
-;   {:id "1004049", :marketname "22.9 Elberta Farmer's Market"}
-;   {:id "1004401", :marketname "27.8 Chicago Street Farmers Market"}
-;   {:id "1004086", :marketname "31.4 Alabama Gulf Coast Market"}
-;   {:id "1005971", :marketname "33.0 Flomaton Farmers Market"}
-;   {:id "1001372", :marketname "37.0 Okaloosa County Farmers Market"}
-;   {:id "1011967", :marketname "37.0 Akers of Strawberries"}
-;   {:id "1001373", :marketname "37.2 Fort Walton Beach Farmers Market"}
-;   {:id "1000051", :marketname "39.6 Fairhope Outdoor Farm Market"}
-;   {:id "1001508", :marketname "43.5 Crestview Farmers Market"}
-;   {:id "1001610", :marketname "44.9 Brewton Farmers Market"}
+; ...
 ;   {:id "1003137", :marketname "52.0 Halls Mill Road Farmers Market"}
 ;   {:id "1010546", :marketname "54.8 Raw and Juicy Farmers Market"}]}
 
 (get-markets :json 32514 false)
-
+;{"results"
+; [{"id" "1007518", "marketname" "4.3 Pensacola Growers' Retail Farmers' Market"}
+;  {"id" "1011160", "marketname" "6.3 Santa Rosa Farmers Market"}
+;  {"id" "1005683", "marketname" "6.5 The Market @ Saint Monica's"}
+;  {"id" "1004835", "marketname" "7.7 Palafox Market"}
+; ...
+;  {"id" "1003137", "marketname" "52.0 Halls Mill Road Farmers Market"}
+;  {"id" "1010546", "marketname" "54.8 Raw and Juicy Farmers Market"}]}
 ; ===============================
 ; TODO: Move Transducers after chan here...
 ; ===============================
@@ -187,65 +182,16 @@
 
 (go
   (->
-    (get-json->put! "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514" false)
+    (get-json->put! "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01&for=county:*")
     (<!)
     (pprint)))
-;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-;{:results
-; [{:id "1007518",
-;   :marketname "4.3 Pensacola Growers' Retail Farmers' Market"}
-;  {:id "1011160", :marketname "6.3 Santa Rosa Farmers Market"}
-;  {:id "1005683", :marketname "6.5 The Market @ Saint Monica's"}
-;  {:id "1004835", :marketname "7.7 Palafox Market"}
-;  {:id "1007779", :marketname "8.2 Port City Market"}
-;  {:id "1006840", :marketname "13.6 Riverwalk Market"}
-;  {:id "1011667", :marketname "17.7 Perdido Farmers Market"}
-;  {:id "1004049", :marketname "22.9 Elberta Farmer's Market"}
-;  {:id "1004401", :marketname "27.8 Chicago Street Farmers Market"}
-;  {:id "1004086", :marketname "31.4 Alabama Gulf Coast Market"}
-;  {:id "1005971", :marketname "33.0 Flomaton Farmers Market"}
-;  {:id "1001372", :marketname "37.0 Okaloosa County Farmers Market"}
-;  {:id "1011967", :marketname "37.0 Akers of Strawberries"}
-;  {:id "1001373", :marketname "37.2 Fort Walton Beach Farmers Market"}
-;  {:id "1000051", :marketname "39.6 Fairhope Outdoor Farm Market"}
-;  {:id "1001508", :marketname "43.5 Crestview Farmers Market"}
-;  {:id "1001610", :marketname "44.9 Brewton Farmers Market"}
-;  {:id "1003137", :marketname "52.0 Halls Mill Road Farmers Market"}
-;  {:id "1010546", :marketname "54.8 Raw and Juicy Farmers Market"}]}
-
-;; This will also work for very large payloads.
-(go
-  (->
-    (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
-    (<!)
-    (pprint)))
-;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-;{:type "FeatureCollection",
-; :features
-;  [{:type "Feature",
-;    :properties
-;     {:STATEFP "01",}
-;      :LSAD "06",
-;      :COUNTYNS "00161528",
-;      :AFFGEOID "0500000US01005",
-;      :GEOID "01005",
-;      :AWATER 50864677,
-;      :COUNTYFP "005",
-;      :NAME "Barbour",
-;      :ALAND 2291820706},
-;    :geometry
-;     {:type "Polygon",}
-;      :coordinates
-;      [[[-85.748032 31.619181]
-;        [-85.745435 31.618898]
-;        [-85.742651 31.621259]
-;        [-85.74174 31.619403]
-;        [-85.739813 31.62181]
-;        [-85.739921 31.623322]
-;        [-85.736932 31.623691]
-;        [-85.731172 31.62994]
-;        [-85.729832 31.632373]
-;       ...
+;;=> something like:
+;[["B01001_001E" "B01001_001M" "state" "county"]
+; ["55049" "-555555555" "01" "001"]
+; ["199510" "-555555555" "01" "003"]
+; ["26614" "-555555555" "01" "005"]
+; ...
+; ["24013" "-555555555" "01" "133"]]
 
 
 ; You may be asking yourself "why would we want to use `core.async` with an http request? Why not just use callbacks?" Well, you could use callbacks, with futures (promises), but let's say we want to build in some sophisticated data transformations over your response.
@@ -277,10 +223,10 @@
     vintage
     "/" (s/join "/" sourcePath)
     "?get=" (s/join "," variables)
-    (if (<= 2 (count geoHierarchy))
+    (if (= 1 (count geoHierarchy))
+      (str "&for=" (vec-pair->str (first geoHierarchy)))
       (str "&in=" (s/join "%20" (map #(vec-pair->str % ) (butlast geoHierarchy)))
-           "&for=" (vec-pair->str (last geoHierarchy)))
-      (str "&for=" (vec-pair->str (first geoHierarchy))))
+           "&for=" (vec-pair->str (last geoHierarchy))))
     "&key=" key))
 
 (def stats-key (obj/oget (env/load) ["parsed" "Census_Key_Pro"]))
@@ -303,20 +249,7 @@
 ;; &key=<key>"                                 ; get key from consumer
 
 ;; Census's statistics API doesn't return standard JSON and thus the`keywords?` argument doesn't make a difference
-(go
-  (->
-    (get-json->put! "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01&for=county:*")
-    (<!)
-    (pprint)))
-;;=> something like:
-;[["B01001_001E" "B01001_001M" "state" "county"]
-; ["55049" "-555555555" "01" "001"]
-; ["199510" "-555555555" "01" "003"]
-; ["26614" "-555555555" "01" "005"]
-; ["22572" "-555555555" "01" "007"]
-; ["57704" "-555555555" "01" "009"]
-; ["10552" "-555555555" "01" "011"]
-; ["24013" "-555555555" "01" "133"]]
+
 ; ===============================
 ; Wrangling the Census statistics' API response into a proper map
 ; ===============================
@@ -334,10 +267,10 @@
 (defn get-stats
   "Composes a call and calls Census' Statistics API"
   [args]
-  (let [call (stats-url-builder args)]
+  (let [url (stats-url-builder args)]
     (go
       (->
-        (get-json->put! call true)
+        (get-json->put! url true)
         (<!)
         (format-stats :keywords) ;; <<- See note on "threading" above
         (vec)
@@ -379,70 +312,6 @@
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ;[{:B01001_001E "4841164", :state "01"}]
 
-(def stats-data [{:B01001_001E "55049", :state "01", :county "001"}
-                 {:B01001_001E "199510", :state "01", :county "003"}
-                 {:B01001_001E "26614", :state "01", :county "005"}
-                 {:B01001_001E "22572", :state "01", :county "007"}
-                 {:B01001_001E "57704", :state "01", :county "009"}
-                 {:B01001_001E "10552", :state "01", :county "011"}])
-
-(def geojson-data {:type "FeatureCollection",
-                   :features [{:type "Feature",
-                               :properties {:STATEFP "01",
-                                            :LSAD "06",
-                                            :COUNTYNS "00161528",
-                                            :AFFGEOID "0500000US01005",
-                                            :GEOID "01005",
-                                            :AWATER 50864677,
-                                            :COUNTYFP "005",
-                                            :NAME "Barbour",
-                                            :ALAND 2291820706},
-                               :geometry {:type "Polygon",
-                                          :coordinates
-                                          [[[-85.748032 31.619181]
-                                            [-85.745435 31.618898]
-                                            [-85.742651 31.621259]]]}}]})
-
-;; Example
-; Transformed stats map
-(def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
-              {:01005 {:properties {:B01001_001E "26614"
-                                    :test1 "string"
-                                    :test2 91}}}])
-
-; Transformed geojson map
-(def geo-x [{:01005 {:type "Feature",
-                     :properties {:STATEFP "01",
-                                  :LSAD "06",
-                                  :COUNTYNS "00161528",
-                                  :AFFGEOID "0500000US01005",
-                                  :GEOID "01005",
-                                  :AWATER 50864677,
-                                  :COUNTYFP "005",
-                                  :NAME "Barbour",
-                                  :ALAND 2291820706},
-                     :geometry {:type "Polygon",
-                                :coordinates
-                                    [[[-85.748032 31.619181
-                                        [-85.745435 31.618898]
-                                        [-85.742651 31.621259]]]]}}}
-            {:01003 {:type "Feature",
-                     :properties {:STATEFP "01",
-                                  :LSAD "06",
-                                  :COUNTYNS "00161528",
-                                  :AFFGEOID "0500000US01005",
-                                  :GEOID "01003",
-                                  :AWATER 50864677,
-                                  :COUNTYFP "005",
-                                  :NAME "Barbour",
-                                  :ALAND 2291820706},
-                     :geometry {:type "Polygon",
-                                :coordinates
-                                      [[[-85.748032 31.619181]
-                                        [-85.745435 31.618898]
-                                        [-85.742651 31.621259]]]}}}])
-
-
 (defn stats-xform
   "
   Takes a single result map from the Census stats API and an integer denoting the number of variables the user requested.
@@ -453,15 +322,58 @@
   The original map is nested into the lowest level of the new map.
   This new hierarchy will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
   "
-  [-keys vars-count]
-  {(keyword (reduce str (vals (take-last (- (count -keys) vars-count) -keys))))
-   {:properties -keys}})
+  [coll vars-count]
+  (map (fn [item]
+         {(keyword (reduce str (vals (take-last (- (count item) vars-count) item))))
+          {:properties item}})
+       coll))
+;; Help from [Stack Overflow](https://stackoverflow.com/questions/37734468/constructing-a-map-on-anonymous-function-in-clojure)
 
 ;; Example
-(stats-xform {:B01001_001E "55049", :state "01", :county "001"} 1)
-;;=> {:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+(stats-xform [{:B01001_001E "55049", :state "01", :county "001"}
+              {:B01001_001E "199510", :state "01", :county "003"}
+              {:B01001_001E "26614", :state "01", :county "005"}
+              {:B01001_001E "22572", :state "01", :county "007"}
+              {:B01001_001E "57704", :state "01", :county "009"}
+              {:B01001_001E "10552", :state "01", :county "011"}]
+             1)
+;;=>
+;({:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}
+; {:01003 {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
+; {:01005 {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
+; ...)
 
-;; Now this works, but we would be creating new collections with each passing transformation. How might we make this a bit more efficient? The answer is transducers!
+
+(defn get-stats-formatted
+  "Composes a call and calls Census' Statistics API"
+  [args]
+  (let [call (stats-url-builder args)
+        vars (count (get args :variables))]
+    (go
+      (->
+        (get-json->put! call true)
+        (<!)
+        (format-stats :keywords)
+        (stats-xform vars)
+        (vec)
+        (pprint)))))
+
+(get-stats-formatted {:vintage "2016"
+                      :sourcePath ["acs" "acs5"]
+                      :geoHierarchy {:county "*"}
+                      :variables ["B01001_001E"]
+                      :key stats-key})
+
+;"Elapsed time: 0.200999 msecs"
+;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+; [{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+;  {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
+;  {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
+;  {:properties {:B01001_001E "22572", :state "01", :county "007"}}}
+; ...]
+
+;; Now this works, but we would be creating new collections with each passing transformation through the threading macro here (`->`). How might we make this a bit more efficient?
+;; Answer: Transducers!
 
 ; ~~~888~~~                                        888
 ;    888    888-~\   /~~~8e  888-~88e  d88~\  e88~\888 888  888  e88~~\  e88~~8e  888-~\  d88~\
@@ -476,6 +388,9 @@
 
 ;; A stateful transducer is needed to change the behavior based on which item in the collection we are "on".
 (defn xf-stats-map [rf]
+  "
+  Stateful transducer, which stores the first item as a list of a keys to apply (via `zipmap`) to the rest of the items in a collection. Serves to turn the Census API response into a more conventional JSON format.
+  "
   (let [prep (volatile! nil)]
     (fn
       ([] (rf))
@@ -491,13 +406,7 @@
 ;; If you want to pass an argument into your transducer, wrap it in another function, which takes the arg and returns a transducer containing it.
 (defn xf-aug-stats [vars-count]
   "
-  Takes a single result map from the Census stats API and an integer denoting the number of variables the user requested.
-  The integer is used to target the non-variable geographic IDs in the result, which are combined into a UID key.
-  The function constructs a new map with a hierarchy containing two new parent keys.
-  The top-level parent key is the composed key, which will serve in the `deep-merge` to `group-by`.
-  The second-level parent key is statically set to `:properties`.
-  The original map is nested into the lowest level of the new map.
-  This new hierarchy will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
+  A function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform each item from the Census API response collection into a new map with a hierarchy that will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
   "
   (fn [rf]
     (fn
@@ -508,73 +417,85 @@
                    {:properties item}})))))
 
 ;; `xf-stats-map` is a transducer, which means we can use it sans `()`s, while `xf-aug-stats` RETURNS a transducer, which requires us to wrap the function in `()`s to return that internal transducer.
-(defn xf-census->map [vars-count]
-  (comp xf-stats-map (xf-aug-stats vars-count)))
+(defn xf-census->map [vars]
+  (comp
+    xf-stats-map
+    (xf-aug-stats vars)))
 
-(transduce xf-stats-map conj [["B01001_001E" "B01001_001M" "state" "county"]
-                              ["55049" "-555555555" "01" "001"]
-                              ["199510" "-555555555" "01" "003"]
-                              ["26614" "-555555555" "01" "005"]
-                              ["22572" "-555555555" "01" "007"]
-                              ["57704" "-555555555" "01" "009"]
-                              ["10552" "-555555555" "01" "011"]
-                              ["24013" "-555555555" "01" "133"]])
+;(defn xf-census->map [vars]
+;  (fn [coll]
+;    (transduce
+;      (comp
+;        xf-stats-map
+;        (xf-aug-stats vars))
+;      conj
+;      coll)))
 
-(transduce (xf-aug-stats 2) conj [ {:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}
-                                  {:B01001_001E "199510", :B01001_001M "-555555555", :state "01", :county "003"}
-                                  {:B01001_001E "26614", :B01001_001M "-555555555", :state "01", :county "005"}
-                                  {:B01001_001E "22572", :B01001_001M "-555555555", :state "01", :county "007"}
-                                  {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}
-                                  {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}
-                                  {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}])
+(transduce xf-stats-map
+           conj
+           [["B01001_001E" "B01001_001M" "state" "county"]
+            ["55049" "-555555555" "01" "001"]
+            ["199510" "-555555555" "01" "003"]
+            ["26614" "-555555555" "01" "005"]
+            ["22572" "-555555555" "01" "007"]
+            ["57704" "-555555555" "01" "009"]
+            ["10552" "-555555555" "01" "011"]
+            ["24013" "-555555555" "01" "133"]])
 
-(transduce (xf-census->map 2) conj [["B01001_001E" "B01001_001M" "state" "county"]
-                                    ["55049" "-555555555" "01" "001"]
-                                    ["199510" "-555555555" "01" "003"]
-                                    ["26614" "-555555555" "01" "005"]
-                                    ["22572" "-555555555" "01" "007"]
-                                    ["57704" "-555555555" "01" "009"]
-                                    ["10552" "-555555555" "01" "011"]
-                                    ["24013" "-555555555" "01" "133"]])
+(transduce (xf-aug-stats 2)
+           conj
+           [{:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}
+            {:B01001_001E "199510", :B01001_001M "-555555555", :state "01", :county "003"}
+            {:B01001_001E "26614", :B01001_001M "-555555555", :state "01", :county "005"}
+            {:B01001_001E "22572", :B01001_001M "-555555555", :state "01", :county "007"}
+            {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}
+            {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}
+            {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}])
+
+;; `transducer` is not lazy. It is analogous to the standard `reduce` function.
+(transduce (xf-census->map 2)
+           conj
+           [["B01001_001E" "B01001_001M" "state" "county"]
+            ["55049" "-555555555" "01" "001"]
+            ["199510" "-555555555" "01" "003"]
+            ["26614" "-555555555" "01" "005"]
+            ["22572" "-555555555" "01" "007"]
+            ["57704" "-555555555" "01" "009"]
+            ["10552" "-555555555" "01" "011"]
+            ["24013" "-555555555" "01" "133"]])
 
 
 ; ===============================
 ; TODO: Figure out what form to put the transducer into for `chan` processing
 ; http://blog.eikeland.se/2014/08/14/transducers/
 ; ===============================
-(defn get-json->xfput!
-  [url vars-count]
-  (let [=resp= (chan 10 (xf-census->map vars-count))
-        args {:response-format  :json
-              :handler          #(put! =resp= %)
-              :error-handler    #(prn (str "ERROR: " %))
-              :keywords? false}]
 
-    (do
-      (GET url args)
-      =resp=)))
+(defn xf-get-json->put!
+  [url port]
+  (let [args {:response-format  :json
+              :handler          #(put! port %)}]
+              ;:error-handler    #(prn (str "ERROR: " %))}]
+       (do
+         (GET url args)
+         port)))
 
 (defn xf-census-get->map
   "Composes a call and calls Census' Statistics API"
-  [args]
+  [{:keys [variables] :as args}]
   (let [url (stats-url-builder args)
-        vars-count (count (get args :variables))]
+        vars (count variables)
+        port (chan 1)]
     (go
-      (->
-        (get-json->xfput! url vars-count)
-        (<!)
-        (pprint)))))
+      (do
+        (xf-get-json->put! url port)
+        (pprint (transduce (xf-census->map vars) conj (<! port)))))))
 
-(def test
-  (let [vars {:variables ["BOO"]}]
-    (pprint (count (get vars :variables)))))
+(time (xf-census-get->map {:vintage "2016"
+                           :sourcePath ["acs" "acs5"]
+                           :geoHierarchy {:state "01" :county "*"}
+                           :variables ["B01001_001E"]
+                           :key stats-key}))
 
-(xf-census-get->map {:vintage "2016"
-                     :sourcePath ["acs" "acs5"]
-                     :geoHierarchy {:state "01" :county "*"}
-                     :variables ["B01001_001E"]
-                     :key stats-key})
-;
 ; Read more on the [anatomy of transducers](https://bendyworks.com/blog/transducers-clojures-next-big-idea)
 ; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
 ; More [transducers](http://matthiasnehlsen.com/blog/2014/10/06/Building-Systems-in-Clojure-2/)
@@ -644,9 +565,126 @@
                        :geoHierarchy {:state "01" :county "*"}
                        :variables ["B01001_001E"]
                        :key stats-key})
+
+
+
+; ===============================
+;  TEST DATA
+; ===============================
+
+
+(go
+  (->
+    (get-json->put! "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch?zip=32514" false)
+    (<!)
+    (pprint)))
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+;{:results
+; [{:id "1007518",
+;   :marketname "4.3 Pensacola Growers' Retail Farmers' Market"}
+;  {:id "1011160", :marketname "6.3 Santa Rosa Farmers Market"}
+;  {:id "1005683", :marketname "6.5 The Market @ Saint Monica's"}
+;  {:id "1004835", :marketname "7.7 Palafox Market"}
+;  {:id "1007779", :marketname "8.2 Port City Market"}
+;  {:id "1006840", :marketname "13.6 Riverwalk Market"}
+; ...
+;  {:id "1010546", :marketname "54.8 Raw and Juicy Farmers Market"}]}
+
+;; This will also work for very large payloads.
 (go
   (->
     (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
     (<!)
-    (get :features)
     (pprint)))
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+;{:type "FeatureCollection",
+; :features
+;  [{:type "Feature",
+;    :properties
+;     {:STATEFP "01",}
+;      :LSAD "06",
+;      :COUNTYNS "00161528",
+;      :AFFGEOID "0500000US01005",
+;      :GEOID "01005",
+;      :AWATER 50864677,
+;      :COUNTYFP "005",
+;      :NAME "Barbour",
+;      :ALAND 2291820706},
+;    :geometry
+;     {:type "Polygon",}
+;      :coordinates
+;      [[[-85.748032 31.619181]
+;        [-85.745435 31.618898]
+;        [-85.742651 31.621259]
+;        [-85.74174 31.619403]
+;        [-85.739813 31.62181]
+;        [-85.739921 31.623322]
+;        [-85.736932 31.623691]
+;        [-85.731172 31.62994]
+;        [-85.729832 31.632373]
+;       ...
+
+
+(def stats-data [{:B01001_001E "55049", :state "01", :county "001"}
+                 {:B01001_001E "199510", :state "01", :county "003"}
+                 {:B01001_001E "26614", :state "01", :county "005"}
+                 {:B01001_001E "22572", :state "01", :county "007"}
+                 {:B01001_001E "57704", :state "01", :county "009"}
+                 {:B01001_001E "10552", :state "01", :county "011"}])
+
+(def geojson-data {:type "FeatureCollection",
+                   :features [{:type "Feature",
+                               :properties {:STATEFP "01",
+                                            :LSAD "06",
+                                            :COUNTYNS "00161528",
+                                            :AFFGEOID "0500000US01005",
+                                            :GEOID "01005",
+                                            :AWATER 50864677,
+                                            :COUNTYFP "005",
+                                            :NAME "Barbour",
+                                            :ALAND 2291820706},
+                               :geometry {:type "Polygon",
+                                          :coordinates
+                                                [[[-85.748032 31.619181]
+                                                  [-85.745435 31.618898]
+                                                  [-85.742651 31.621259]]]}}]})
+
+;; Example
+; Transformed stats map
+(def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
+              {:01005 {:properties {:B01001_001E "26614"
+                                    :test1 "string"
+                                    :test2 91}}}])
+
+; Transformed geojson map
+(def geo-x [{:01005 {:type "Feature",
+                     :properties {:STATEFP "01",
+                                  :LSAD "06",
+                                  :COUNTYNS "00161528",
+                                  :AFFGEOID "0500000US01005",
+                                  :GEOID "01005",
+                                  :AWATER 50864677,
+                                  :COUNTYFP "005",
+                                  :NAME "Barbour",
+                                  :ALAND 2291820706},
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                      [[[-85.748032 31.619181
+                                           [-85.745435 31.618898]
+                                           [-85.742651 31.621259]]]]}}}
+            {:01003 {:type "Feature",
+                     :properties {:STATEFP "01",
+                                  :LSAD "06",
+                                  :COUNTYNS "00161528",
+                                  :AFFGEOID "0500000US01005",
+                                  :GEOID "01003",
+                                  :AWATER 50864677,
+                                  :COUNTYFP "005",
+                                  :NAME "Barbour",
+                                  :ALAND 2291820706},
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                      [[[-85.748032 31.619181]
+                                        [-85.745435 31.618898]
+                                        [-85.742651 31.621259]]]}}}])
+
