@@ -1,5 +1,7 @@
 (ns http.core
-  (:require  [cljs.core.async :as async :refer [chan put! take! >! <! pipe timeout close! alts!]]
+  (:require  [cljs.core.async
+              :as async
+              :refer [chan put! take! >! <! pipe timeout close! alts! dropping-buffer]]
              [cljs.core.async :refer-macros [go go-loop alt!]]
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
@@ -146,11 +148,9 @@
 ; ...
 ;  {"id" "1003137", "marketname" "52.0 Halls Mill Road Farmers Market"}
 ;  {"id" "1010546", "marketname" "54.8 Raw and Juicy Farmers Market"}]}
+
 ; ===============================
 ; TODO: Move Transducers after chan here...
-; ===============================
-; ===============================
-; Merge two remote resources
 ; ===============================
 
 ; By default, `cljs-ajax` uses the Google Closure library [XhrIo](https://developers.google.com/closure/library/docs/xhrio) API. If you want to use [XMLHttpRequest](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest) API directly, add :api (js/XMLHttpRequest.) to the map. Both of these use callback APIs to do their business.
@@ -164,16 +164,14 @@
 ;                                                          _/
 
 (defn get-json->put!
-  [base-url keywords? params]
+  [base-url keywords?]
   (let [=resp= (chan)
         args (merge
                {:response-format  :json
                 :handler          #(put! =resp= %)
                 :error-handler    #(prn (str "ERROR: " %))}
                (when-let [keywords? {:keywords? keywords?}]
-                 keywords?)
-               (when-let [params {:params params}]
-                 params))]
+                 keywords?))]
     (do
       (GET base-url args)
       =resp=)))
@@ -240,18 +238,10 @@
 
 ;; Produces => "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:000100&key=6980d91653a1f78acd456d9187ed28e23ea5d4e3"
 
-;; DISSECTED =>
-;; "https://api.census.gov/data/
-;; 2016                                        ; `vintage`
-;; /acs/acs5                                   ; joined `sourcePath` array
-;; ?get= B01001_001E,B01001_001M               ; joined `variables` array
-;; &in=state:01%20county:073&for=tract:000100  ; `geoHierarchy` map is larger than 1 k/v pair
-;; &key=<key>"                                 ; get key from consumer
-
 ;; Census's statistics API doesn't return standard JSON and thus the`keywords?` argument doesn't make a difference
 
 ; ===============================
-; Wrangling the Census statistics' API response into a proper map
+; Wrangling the Census statistics' API response into a proper map - THE OLD FASHIONED WAY
 ; ===============================
 
 ; The response format of the Census statistics' API is a csv-like JSON format, which will make it difficult to work with despite it's smaller payload size. Let's create a function that takes the top row as the labels and zipmap them to the rest of the rows of the response:
@@ -312,7 +302,7 @@
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ;[{:B01001_001E "4841164", :state "01"}]
 
-(defn stats-xform
+(defn stats-coll-trans
   "
   Takes a single result map from the Census stats API and an integer denoting the number of variables the user requested.
   The integer is used to target the non-variable geographic IDs in the result, which are combined into a UID key.
@@ -330,21 +320,20 @@
 ;; Help from [Stack Overflow](https://stackoverflow.com/questions/37734468/constructing-a-map-on-anonymous-function-in-clojure)
 
 ;; Example
-(stats-xform [{:B01001_001E "55049", :state "01", :county "001"}
-              {:B01001_001E "199510", :state "01", :county "003"}
-              {:B01001_001E "26614", :state "01", :county "005"}
-              {:B01001_001E "22572", :state "01", :county "007"}
-              {:B01001_001E "57704", :state "01", :county "009"}
-              {:B01001_001E "10552", :state "01", :county "011"}]
-             1)
+(stats-coll-trans [{:B01001_001E "55049", :state "01", :county "001"}
+                   {:B01001_001E "199510", :state "01", :county "003"}
+                   {:B01001_001E "26614", :state "01", :county "005"}
+                   {:B01001_001E "22572", :state "01", :county "007"}
+                   {:B01001_001E "57704", :state "01", :county "009"}
+                   {:B01001_001E "10552", :state "01", :county "011"}]
+                  1)
 ;;=>
 ;({:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}
 ; {:01003 {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
 ; {:01005 {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
 ; ...)
 
-
-(defn get-stats-formatted
+(defn get-stats->formated
   "Composes a call and calls Census' Statistics API"
   [args]
   (let [call (stats-url-builder args)
@@ -354,17 +343,16 @@
         (get-json->put! call true)
         (<!)
         (format-stats :keywords)
-        (stats-xform vars)
+        (stats-coll-trans vars)
         (vec)
         (pprint)))))
 
-(get-stats-formatted {:vintage "2016"
+(get-stats->formated {:vintage "2016"
                       :sourcePath ["acs" "acs5"]
                       :geoHierarchy {:county "*"}
                       :variables ["B01001_001E"]
                       :key stats-key})
 
-;"Elapsed time: 0.200999 msecs"
 ;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ; [{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
 ;  {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
@@ -422,15 +410,6 @@
     xf-stats-map
     (xf-aug-stats vars)))
 
-;(defn xf-census->map [vars]
-;  (fn [coll]
-;    (transduce
-;      (comp
-;        xf-stats-map
-;        (xf-aug-stats vars))
-;      conj
-;      coll)))
-
 (transduce xf-stats-map
            conj
            [["B01001_001E" "B01001_001M" "state" "county"]
@@ -457,27 +436,25 @@
            conj
            [["B01001_001E" "B01001_001M" "state" "county"]
             ["55049" "-555555555" "01" "001"]
-            ["199510" "-555555555" "01" "003"]
-            ["26614" "-555555555" "01" "005"]
-            ["22572" "-555555555" "01" "007"]
             ["57704" "-555555555" "01" "009"]
             ["10552" "-555555555" "01" "011"]
             ["24013" "-555555555" "01" "133"]])
-
-
-; ===============================
-; TODO: Figure out what form to put the transducer into for `chan` processing
-; http://blog.eikeland.se/2014/08/14/transducers/
-; ===============================
+;=>
+;({:01133 {:properties {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}}
+;  {:01011 {:properties {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}}}
+;  {:01009 {:properties {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}}}
+;  {:01001 {:properties {:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}}}})
 
 (defn xf-get-json->put!
   [url port]
   (let [args {:response-format  :json
-              :handler          #(put! port %)}]
-              ;:error-handler    #(prn (str "ERROR: " %))}]
+              :handler          #(put! port %)
+              :error-handler    #(prn (str "ERROR: " %))}]
        (do
          (GET url args)
          port)))
+
+;; When working with `core.async` it's important to understand what you expect the shape of your data flowing into your channels will look like. In the case below, a single request using `cljs-ajax` will return a list of results, so we deal with this list after it is retrieved rather than as part of the `chan` establishment. When we plan on using transducers as a way to treat a stream or flow of individual items as a collection **over time** via a channel, we can do so by adding such a transducer to the `chan` directly (e.g.: `let [port (chan 1 (xform-each-item))]`
 
 (defn xf-census-get->map
   "Composes a call and calls Census' Statistics API"
@@ -486,23 +463,33 @@
         vars (count variables)
         port (chan 1)]
     (go
-      (do
-        (xf-get-json->put! url port)
-        (pprint (transduce (xf-census->map vars) conj (<! port)))))))
+      (xf-get-json->put! url port)
+      (let [results (transduce (xf-census->map vars) conj (<! port))]
+        (pprint results)))))
 
-(time (xf-census-get->map {:vintage "2016"
-                           :sourcePath ["acs" "acs5"]
-                           :geoHierarchy {:state "01" :county "*"}
-                           :variables ["B01001_001E"]
-                           :key stats-key}))
+(xf-census-get->map {:vintage "2016"
+                     :sourcePath ["acs" "acs5"]
+                     :geoHierarchy {:county "*"}
+                     :variables ["B01001_001E"]
+                     :key stats-key})
+
+; ===============================
+; Comparing the speed of our solutions against each other
+; ===============================
+
+(get-stats->formated {:vintage "2016"
+                      :sourcePath ["acs" "acs5"]
+                      :geoHierarchy {:county "*"}
+                      :variables ["B01001_001E"]
+                      :key stats-key})
 
 ; Read more on the [anatomy of transducers](https://bendyworks.com/blog/transducers-clojures-next-big-idea)
 ; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
 ; More [transducers](http://matthiasnehlsen.com/blog/2014/10/06/Building-Systems-in-Clojure-2/)
-
+; And even [more](http://blog.eikeland.se/2014/08/14/transducers/)
 
 ; ===============================
-; TODO: END
+; TODO: Merging Two Channels
 ; ===============================
 
 ;; Deep Merge function [stolen](https://gist.github.com/danielpcox/c70a8aa2c36766200a95)
