@@ -133,21 +133,13 @@
 ; {:results
 ;  [{:id "1007518", :marketname "4.3 Pensacola Growers' Retail Farmers' Market"}
 ;   {:id "1011160", :marketname "6.3 Santa Rosa Farmers Market"}
-;   {:id "1005683", :marketname "6.5 The Market @ Saint Monica's"}
-;   {:id "1004835", :marketname "7.7 Palafox Market"}
-; ...
-;   {:id "1003137", :marketname "52.0 Halls Mill Road Farmers Market"}
-;   {:id "1010546", :marketname "54.8 Raw and Juicy Farmers Market"}]}
+; ...]}
 
 (get-markets :json 32514 false)
 ;{"results"
 ; [{"id" "1007518", "marketname" "4.3 Pensacola Growers' Retail Farmers' Market"}
 ;  {"id" "1011160", "marketname" "6.3 Santa Rosa Farmers Market"}
-;  {"id" "1005683", "marketname" "6.5 The Market @ Saint Monica's"}
-;  {"id" "1004835", "marketname" "7.7 Palafox Market"}
-; ...
-;  {"id" "1003137", "marketname" "52.0 Halls Mill Road Farmers Market"}
-;  {"id" "1010546", "marketname" "54.8 Raw and Juicy Farmers Market"}]}
+; ...]}
 
 ; ===============================
 ; TODO: Move Transducers after chan here...
@@ -188,8 +180,7 @@
 ; ["55049" "-555555555" "01" "001"]
 ; ["199510" "-555555555" "01" "003"]
 ; ["26614" "-555555555" "01" "005"]
-; ...
-; ["24013" "-555555555" "01" "133"]]
+; ...]
 
 
 ; You may be asking yourself "why would we want to use `core.async` with an http request? Why not just use callbacks?" Well, you could use callbacks, with futures (promises), but let's say we want to build in some sophisticated data transformations over your response.
@@ -249,7 +240,7 @@
 ; [Inspiration](https://github.com/mihi-tr/csv-map/blob/master/src/csv_map/core.clj)
 
 ;; Note: When using "threading" macros (`->` & `->>`) the value that is thread through the functions is passed as the FIRST argument, thus we're placing `rows` ahead of the `key` argument:
-(defn format-stats [rows key]
+(defn zipmap-1st [rows key]
   (if (= :keywords key)
     (map (partial zipmap (vec (map keyword (first rows)))) (rest rows))
     (map (partial zipmap (first rows)) (rest rows))))
@@ -262,7 +253,7 @@
       (->
         (get-json->put! url true)
         (<!)
-        (format-stats :keywords) ;; <<- See note on "threading" above
+        (zipmap-1st :keywords) ;; <<- See note on "threading" above
         (vec)
         (pprint)))))
 
@@ -289,9 +280,6 @@
 ; [{:B01001_001E "55049", :state "01", :county "001"
 ;  {:B01001_001E "199510", :state "01", :county "003"}
 ;  {:B01001_001E "26614", :state "01", :county "005"}
-;  {:B01001_001E "22572", :state "01", :county "007"}
-;  {:B01001_001E "57704", :state "01", :county "009"}
-;  {:B01001_001E "10552", :state "01", :county "011"}
 ; ...]
 
 (get-stats {:vintage "2016"
@@ -302,7 +290,7 @@
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ;[{:B01001_001E "4841164", :state "01"}]
 
-(defn stats-coll-trans
+(defn stats+geoids
   "
   Takes a single result map from the Census stats API and an integer denoting the number of variables the user requested.
   The integer is used to target the non-variable geographic IDs in the result, which are combined into a UID key.
@@ -312,52 +300,47 @@
   The original map is nested into the lowest level of the new map.
   This new hierarchy will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
   "
-  [coll vars-count]
+  [coll vars#]
   (map (fn [item]
-         {(keyword (reduce str (vals (take-last (- (count item) vars-count) item))))
+         {(keyword (reduce str (vals (take-last (- (count item) vars#) item))))
           {:properties item}})
        coll))
 ;; Help from [Stack Overflow](https://stackoverflow.com/questions/37734468/constructing-a-map-on-anonymous-function-in-clojure)
 
 ;; Example
-(stats-coll-trans [{:B01001_001E "55049", :state "01", :county "001"}
-                   {:B01001_001E "199510", :state "01", :county "003"}
-                   {:B01001_001E "26614", :state "01", :county "005"}
-                   {:B01001_001E "22572", :state "01", :county "007"}
-                   {:B01001_001E "57704", :state "01", :county "009"}
-                   {:B01001_001E "10552", :state "01", :county "011"}]
-                  1)
+(stats+geoids [{:B01001_001E "55049", :state "01", :county "001"}
+               {:B01001_001E "199510", :state "01", :county "003"}
+               {:B01001_001E "26614", :state "01", :county "005"}
+               {:B01001_001E "22572", :state "01", :county "007"}
+               {:B01001_001E "57704", :state "01", :county "009"}
+               {:B01001_001E "10552", :state "01", :county "011"}]
+              1)
 ;;=>
 ;({:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}
 ; {:01003 {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
 ; {:01005 {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
 ; ...)
 
-(defn get-stats->formated
+(defn get-stats->put!
   "Composes a call and calls Census' Statistics API"
-  [args]
+  [args cb]
   (let [call (stats-url-builder args)
-        vars (count (get args :variables))]
+        vars# (count (get args :variables))]
     (go
-      (->
-        (get-json->put! call true)
-        (<!)
-        (format-stats :keywords)
-        (stats-coll-trans vars)
-        (vec)
-        (pprint)))))
-
-(get-stats->formated {:vintage "2016"
-                      :sourcePath ["acs" "acs5"]
-                      :geoHierarchy {:county "*"}
-                      :variables ["B01001_001E"]
-                      :key stats-key})
+      (let [time (js/Date.)]
+        (->
+          (get-json->put! call true)
+          (<!)
+          (zipmap-1st :keywords)
+          (stats+geoids vars#)
+          (vec)
+          (cb))
+        (js/console.log (str "get-stats->put!: Elapsed ms= " (- (js/Date.) time)))))))
 
 ;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-; [{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
-;  {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
-;  {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
-;  {:properties {:B01001_001E "22572", :state "01", :county "007"}}}
+;[{:01001 {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+; {:01003 {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
+; {:01005 {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
 ; ...]
 
 ;; Now this works, but we would be creating new collections with each passing transformation through the threading macro here (`->`). How might we make this a bit more efficient?
@@ -375,7 +358,7 @@
 ; ===============================
 
 ;; A stateful transducer is needed to change the behavior based on which item in the collection we are "on".
-(defn xf-stats-map [rf]
+(defn xf-zipmap-1st [rf]
   "
   Stateful transducer, which stores the first item as a list of a keys to apply (via `zipmap`) to the rest of the items in a collection. Serves to turn the Census API response into a more conventional JSON format.
   "
@@ -392,7 +375,7 @@
            (rf result (zipmap prev (vec item)))))))))
 
 ;; If you want to pass an argument into your transducer, wrap it in another function, which takes the arg and returns a transducer containing it.
-(defn xf-aug-stats [vars-count]
+(defn xf-geo+stat [vars#]
   "
   A function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform each item from the Census API response collection into a new map with a hierarchy that will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
   "
@@ -401,96 +384,128 @@
       ([] (rf))
       ([result] (rf result))
       ([result item]
-       (rf result {(keyword (reduce str (vals (take-last (- (count item) vars-count) item))))
+       (rf result {(keyword (reduce str (vals (take-last (- (count item) vars#) item))))
                    {:properties item}})))))
 
-;; `xf-stats-map` is a transducer, which means we can use it sans `()`s, while `xf-aug-stats` RETURNS a transducer, which requires us to wrap the function in `()`s to return that internal transducer.
-(defn xf-census->map [vars]
+;; `xf-zipmap-1st` is a transducer, which means we can use it sans `()`s, while `xf-geo+stat` RETURNS a transducer, which requires us to wrap the function in `()`s to return that internal transducer.
+(defn xf-1-stat->map [vars#]
   (comp
-    xf-stats-map
-    (xf-aug-stats vars)))
+    xf-zipmap-1st
+    (xf-geo+stat vars#)))
 
-(transduce xf-stats-map
-           conj
-           [["B01001_001E" "B01001_001M" "state" "county"]
-            ["55049" "-555555555" "01" "001"]
-            ["199510" "-555555555" "01" "003"]
-            ["26614" "-555555555" "01" "005"]
-            ["22572" "-555555555" "01" "007"]
-            ["57704" "-555555555" "01" "009"]
-            ["10552" "-555555555" "01" "011"]
-            ["24013" "-555555555" "01" "133"]])
-
-(transduce (xf-aug-stats 2)
-           conj
-           [{:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}
-            {:B01001_001E "199510", :B01001_001M "-555555555", :state "01", :county "003"}
-            {:B01001_001E "26614", :B01001_001M "-555555555", :state "01", :county "005"}
-            {:B01001_001E "22572", :B01001_001M "-555555555", :state "01", :county "007"}
-            {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}
-            {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}
-            {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}])
-
-;; `transducer` is not lazy. It is analogous to the standard `reduce` function.
-(transduce (xf-census->map 2)
-           conj
-           [["B01001_001E" "B01001_001M" "state" "county"]
-            ["55049" "-555555555" "01" "001"]
-            ["57704" "-555555555" "01" "009"]
-            ["10552" "-555555555" "01" "011"]
-            ["24013" "-555555555" "01" "133"]])
-;=>
-;({:01133 {:properties {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}}
-;  {:01011 {:properties {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}}}
-;  {:01009 {:properties {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}}}
-;  {:01001 {:properties {:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}}}})
-
-(defn xf-get-json->put!
+(defn get->put!->port
   [url port]
-  (let [args {:response-format  :json
-              :handler          #(put! port %)
-              :error-handler    #(prn (str "ERROR: " %))}]
+  (let [args {:response-format :json
+              :handler         #(put! port %)
+              :error-handler   #(prn (str "ERROR: " %))
+              :keywords        true}]
        (do
          (GET url args)
          port)))
 
 ;; When working with `core.async` it's important to understand what you expect the shape of your data flowing into your channels will look like. In the case below, a single request using `cljs-ajax` will return a list of results, so we deal with this list after it is retrieved rather than as part of the `chan` establishment. When we plan on using transducers as a way to treat a stream or flow of individual items as a collection **over time** via a channel, we can do so by adding such a transducer to the `chan` directly (e.g.: `let [port (chan 1 (xform-each-item))]`
+(source async/transduce)
 
-(defn xf-census-get->map
+(defn get->chan->xfstats
   "Composes a call and calls Census' Statistics API"
-  [{:keys [variables] :as args}]
+  [{:keys [variables] :as args} cb]
   (let [url (stats-url-builder args)
         vars (count variables)
-        port (chan 1)]
+        port (chan)]
     (go
-      (xf-get-json->put! url port)
-      (let [results (transduce (xf-census->map vars) conj (<! port))]
-        (pprint results)))))
+      (let [time (js/Date.)]
+        (get->put!->port url port)
+        (cb (sequence (xf-1-stat->map vars) (<! port)))
+        (js/console.log (str "get->chan->xfstats: Elapsed ms= " (- (js/Date.) time)))))))
 
-(xf-census-get->map {:vintage "2016"
+(get->chan->xfstats {:vintage "2016"
                      :sourcePath ["acs" "acs5"]
                      :geoHierarchy {:county "*"}
                      :variables ["B01001_001E"]
-                     :key stats-key})
+                     :key stats-key}
+                    pprint)
+
+
+(defn xf-stats->map [vars#]
+  "
+  A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([result] (rf result))
+      ([result item]
+       (rf result (transduce (xf-1-stat->map vars#) conj item))))))
+
+(transduce (xf-stats->map 2) conj [["B01001_001E" "B01001_001M" "state" "county"]
+                                   ["55049" "-555555555" "01" "001"]
+                                   ["57704" "-555555555" "01" "009"]
+                                   ["10552" "-555555555" "01" "011"]
+                                   ["24013" "-555555555" "01" "133"]])
+
+(defn get->chanxf->stats
+  "Composes a call and calls Census' Statistics API"
+  [{:keys [variables] :as args} cb]
+  (let [url   (stats-url-builder args)
+        vars# (count variables)
+        =resp=  (chan 1 (xf-stats->map vars#) #(pprint "fail! " %))]
+    (go
+      (let [time (js/Date.)]
+        (get->put!->port url =resp=)
+        (cb (<! =resp=))
+        (js/console.log (str "get->chanxf->stats: Elapsed ms= " (- (js/Date.) time)))))))
 
 ; ===============================
 ; Comparing the speed of our solutions against each other
 ; ===============================
 
-(get-stats->formated {:vintage "2016"
-                      :sourcePath ["acs" "acs5"]
-                      :geoHierarchy {:county "*"}
-                      :variables ["B01001_001E"]
-                      :key stats-key})
+;; for all counties: "get->chanxf->stats: Elapsed ms= 6956"
+(get->chanxf->stats {:vintage "2016"
+                     :sourcePath ["acs" "acs5"]
+                     :geoHierarchy {:county "*"}
+                     :variables ["B01001_001E"]
+                     :key stats-key}
+                    pprint)
+;;=>
+;({:01133 {:properties {:B01001_001E "24013", :state "01", :county "133"}}}
+; {:01131 {:properties {:B01001_001E "11119", :state "01", :county "131"}}}
+; {:01129 {:properties {:B01001_001E "16909", :state "01", :county "129"}}}
+; {:01127 {:properties {:B01001_001E "65593", :state "01", :county "127"}}}
+; ...)
+
+;; for all counties: "get->chan->xfstats: Elapsed ms= 6496"
+(get->chan->xfstats {:vintage "2016"
+                     :sourcePath ["acs" "acs5"]
+                     :geoHierarchy {:county "*"}
+                     :variables ["B01001_001E"]
+                     :key stats-key}
+                    pprint)
+;;=>
+;({:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+; {:01003{:properties {:B01001_001E "199510", :state "01", :county "003"}}}
+; {:01005{:properties {:B01001_001E "26614", :state "01", :county "005"}}}
+; {:01007{:properties {:B01001_001E "22572", :state "01", :county "007"}}}
+; ...)
+
+;; for all counties: "get-stats->put!: Elapsed ms= 7929"
+(get-stats->put! {:vintage "2016"
+                  :sourcePath ["acs" "acs5"]
+                  :geoHierarchy {:county "*"}
+                  :variables ["B01001_001E"]
+                  :key stats-key}
+                 pprint)
+;;=>
+;[{:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+; {:01003{:properties {:B01001_001E "199510", :state "01", :county "003"}}}
+; {:01005{:properties {:B01001_001E "26614", :state "01", :county "005"}}}
+; {:01007{:properties {:B01001_001E "22572", :state "01", :county "007"}}}
+; ...]
 
 ; Read more on the [anatomy of transducers](https://bendyworks.com/blog/transducers-clojures-next-big-idea)
 ; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
 ; More [transducers](http://matthiasnehlsen.com/blog/2014/10/06/Building-Systems-in-Clojure-2/)
 ; And even [more](http://blog.eikeland.se/2014/08/14/transducers/)
 
-; ===============================
-; TODO: Merging Two Channels
-; ===============================
+
 
 ;; Deep Merge function [stolen](https://gist.github.com/danielpcox/c70a8aa2c36766200a95)
 (defn deep-merge
@@ -504,10 +519,54 @@
       (reduce #(rec-merge %1 %2) v vs)
       v)))
 
-(for [[each-of maps] (group-by keys (concat stats-x geo-x))]
-  (apply deep-merge maps))
+(defn merge-geo+stats
+  [stats-map geo-map]
+  (for [[_ maps] (group-by keys (concat stats-map geo-map))]
+    (apply deep-merge maps)))
+
+(def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
+              {:01005 {:properties {:B01001_001E "26614"
+                                    :test1 "string"
+                                    :test2 91}}}])
+
+; Transformed geojson map
+(def geo-x [{:01005 {:type "Feature",
+                     :properties {:STATEFP "01",
+                                  :LSAD "06",
+                                  :COUNTYNS "00161528",
+                                  :AFFGEOID "0500000US01005",
+                                  :GEOID "01005",
+                                  :AWATER 50864677,
+                                  :COUNTYFP "005",
+                                  :NAME "Barbour",
+                                  :ALAND 2291820706},
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                      [[[-85.748032 31.619181
+                                         [-85.745435 31.618898]
+                                         [-85.742651 31.621259]]]]}}}
+            {:01003 {:type "Feature",
+                     :properties {:STATEFP "01",
+                                  :LSAD "06",
+                                  :COUNTYNS "00161528",
+                                  :AFFGEOID "0500000US01005",
+                                  :GEOID "01003",
+                                  :AWATER 50864677,
+                                  :COUNTYFP "005",
+                                  :NAME "Barbour",
+                                  :ALAND 2291820706},
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                      [[[-85.748032 31.619181]
+                                        [-85.745435 31.618898]
+                                        [-85.742651 31.621259]]]}}}])
+
+(merge-geo+stats stats-x geo-x)
 
 
+; ===============================
+; TODO: Merging Two Channels ::START
+; ===============================
 
 (defn merge-geo-stats
   "
@@ -521,18 +580,38 @@
   Thus, superfluous GeoJSON values are filtered out via a `remove` operation on the collection in the local `chan`.
   "
   [args]
-  (let [call (stats-url-builder args)
-        vars-count (count (get args :variables))]
-        ;=features= (chan)]
-    (go
-      (->
-        (get-json->put! call false)
-        (<!)
-        ;(format-stats :keywords) ;; <<- See note on "threading" above
-        ;(vec)
-        ;(stats-results-xform vars-count)
-        (map (comp-format-xform vars-count))
-        (pprint)))))
+  (let [stats-call (stats-url-builder args)
+        vars# (count (get args :variables))
+        =features= (chan 1)
+        =stats= (chan 1 (xf-stats->map vars#) #(pprint "fail! " %))]
+    (go (get->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=))
+    (go (get->put!->port stats-call =stats=))))
+
+
+
+
+(go
+  (->
+    (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
+    (<!)
+    (get-in [:features])
+    (pprint)))
+;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
+;{:type "FeatureCollection",
+; :features
+;  [{:type "Feature",
+;    :properties
+;     {:STATEFP "01",}
+;      :LSAD "06",
+;      :COUNTYNS "00161528",
+;      :AFFGEOID "0500000US01005",
+;      :GEOID "01005",
+
+; ===============================
+; TODO: Merging Two Channels :: END
+; ===============================
+
+
 
 (merge-geo-stats {:vintage "2016"
                   :sourcePath ["acs" "acs5"]
@@ -675,3 +754,40 @@
                                         [-85.745435 31.618898]
                                         [-85.742651 31.621259]]]}}}])
 
+
+(merge-geo+stats stats-x geo-x)
+
+(transduce xf-zipmap-1st
+           conj
+           [["B01001_001E" "B01001_001M" "state" "county"]
+            ["55049" "-555555555" "01" "001"]
+            ["199510" "-555555555" "01" "003"]
+            ["26614" "-555555555" "01" "005"]
+            ["22572" "-555555555" "01" "007"]
+            ["57704" "-555555555" "01" "009"]
+            ["10552" "-555555555" "01" "011"]
+            ["24013" "-555555555" "01" "133"]])
+
+(transduce (xf-geo+stat 2)
+           conj
+           [{:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}
+            {:B01001_001E "199510", :B01001_001M "-555555555", :state "01", :county "003"}
+            {:B01001_001E "26614", :B01001_001M "-555555555", :state "01", :county "005"}
+            {:B01001_001E "22572", :B01001_001M "-555555555", :state "01", :county "007"}
+            {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}
+            {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}
+            {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}])
+
+;; `transducer` is not lazy. It is analogous to the standard `reduce` function.
+(transduce (xf-1-stat->map 2)
+           conj
+           [["B01001_001E" "B01001_001M" "state" "county"]
+            ["55049" "-555555555" "01" "001"]
+            ["57704" "-555555555" "01" "009"]
+            ["10552" "-555555555" "01" "011"]
+            ["24013" "-555555555" "01" "133"]])
+;=>
+;({:01133 {:properties {:B01001_001E "24013", :B01001_001M "-555555555", :state "01", :county "133"}}
+;  {:01011 {:properties {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}}}
+;  {:01009 {:properties {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}}}
+;  {:01001 {:properties {:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}}}})

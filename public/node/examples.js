@@ -8,13 +8,13 @@
   }
 })(this, function () {
     
-var SHADOW_IMPORT_PATH = "C:/Users/surface/Projects/clojure/cljs/guides/public/node/cljs-runtime";
+var SHADOW_IMPORT_PATH = "C:/Users/Surface/Projects/clojure/cljs/guides/public/node/cljs-runtime";
 global.$CLJS = global;
 try {require('source-map-support').install();} catch (e) {console.warn('no "source-map-support" (run "npm install source-map-support --save-dev" to get it)');}
 
 global.CLOSURE_NO_DEPS = true;
 
-global.CLOSURE_DEFINES = {"shadow.cljs.devtools.client.env.repl_pprint":false,"shadow.cljs.devtools.client.env.devtools_url":"","shadow.cljs.devtools.client.env.autoload":false,"shadow.cljs.devtools.client.env.proc_id":"1142a9e8-56e4-4a20-93fc-dc8026b2b9e3","goog.ENABLE_DEBUG_LOADER":false,"shadow.cljs.devtools.client.env.use_document_host":true,"shadow.cljs.devtools.client.env.module_format":"goog","goog.LOCALE":"en","shadow.cljs.devtools.client.env.repl_host":"10.0.75.1","shadow.cljs.devtools.client.env.build_id":"lib","shadow.cljs.devtools.client.env.ignore_warnings":false,"goog.DEBUG":true,"cljs.core._STAR_target_STAR_":"nodejs","shadow.cljs.devtools.client.env.reload_with_state":false,"shadow.cljs.devtools.client.env.ssl":false,"shadow.cljs.devtools.client.env.repl_port":9630,"shadow.cljs.devtools.client.env.enabled":true,"goog.TRANSPILE":"never"};
+global.CLOSURE_DEFINES = {"shadow.cljs.devtools.client.env.repl_pprint":false,"shadow.cljs.devtools.client.env.devtools_url":"","shadow.cljs.devtools.client.env.autoload":false,"shadow.cljs.devtools.client.env.proc_id":"f25a0434-40bb-4992-b905-19249b57c998","goog.ENABLE_DEBUG_LOADER":false,"shadow.cljs.devtools.client.env.use_document_host":true,"shadow.cljs.devtools.client.env.module_format":"goog","goog.LOCALE":"en","shadow.cljs.devtools.client.env.repl_host":"192.168.1.58","shadow.cljs.devtools.client.env.build_id":"lib","shadow.cljs.devtools.client.env.ignore_warnings":false,"goog.DEBUG":true,"cljs.core._STAR_target_STAR_":"nodejs","shadow.cljs.devtools.client.env.reload_with_state":false,"shadow.cljs.devtools.client.env.ssl":false,"shadow.cljs.devtools.client.env.repl_port":9630,"shadow.cljs.devtools.client.env.enabled":true,"goog.TRANSPILE":"never"};
 
 var goog = global.goog = {};
 
