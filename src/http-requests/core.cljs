@@ -1,7 +1,7 @@
 (ns http.core
   (:require  [cljs.core.async
               :as async
-              :refer [chan put! take! >! <! pipe timeout close! alts! dropping-buffer]]
+              :refer [chan put! take! >! <! pipe timeout close! alts! pipeline-async]]
              [cljs.core.async :refer-macros [go go-loop alt!]]
              [ajax.core :as http :refer [GET POST]]
              [cognitect.transit :as t]
@@ -321,6 +321,63 @@
 ; {:01005 {:properties {:B01001_001E "26614", :state "01", :county "005"}}}
 ; ...)
 
+(defn features+geoids
+  "
+  Takes a single result GeoJSON feature and reaches into its `:properties` for the `GEOID`, which it augments as a UID.
+  The original feature is nested into the lowest level of the new map.
+  This new hierarchy will enable deep-merging of the augmented stats map.
+  "
+  [coll]
+  (map (fn [item]
+         {(keyword (get-in item [:properties :GEOID])) item})
+       coll))
+
+(features+geoids [{:type "Feature",
+                   :properties
+                   {:STATEFP "01",
+                    :LSAD "06",
+                    :COUNTYNS "00161528",
+                    :AFFGEOID "0500000US01005",
+                    :GEOID "01005",
+                    :AWATER 50864677,
+                    :COUNTYFP "005",
+                    :NAME "Barbour",
+                    :ALAND 2291820706},
+                   :geometry
+                   {:type "Polygon",
+                    :coordinates
+                    [[[-85.748032 31.619181]
+                      [-85.745435 31.618898]
+                      [-85.742651 31.621259]
+                      [-85.74174 31.619403]
+                      [-85.739813 31.62181]
+                      [-85.739921 31.623322]
+                      [-85.736932 31.623691]
+                      [-85.731172 31.62994]
+                      [-85.729832 31.632373]]]}}])
+
+;=>
+;({:01005 {:type "Feature",
+;          :properties {:STATEFP "01",
+;                       :LSAD "06",
+;                       :COUNTYNS "00161528",
+;                       :AFFGEOID "0500000US01005",
+;                       :GEOID "01005",
+;                       :AWATER 50864677,
+;                       :COUNTYFP "005",
+;                       :NAME "Barbour",
+;                       :ALAND 2291820706},
+;          :geometry {:type "Polygon",
+;                     :coordinates [[[-85.748032 31.619181]
+;                                    [-85.745435 31.618898]
+;                                    [-85.742651 31.621259]
+;                                    [-85.74174 31.619403]
+;                                    [-85.739813 31.62181]
+;                                    [-85.739921 31.623322]
+;                                    [-85.736932 31.623691]
+;                                    [-85.731172 31.62994]
+;                                    [-85.729832 31.632373]]]}}})
+
 (defn get-stats->put!
   "Composes a call and calls Census' Statistics API"
   [args cb]
@@ -358,10 +415,11 @@
 ; ===============================
 
 ;; A stateful transducer is needed to change the behavior based on which item in the collection we are "on".
-(defn xf-zipmap-1st [rf]
+(defn xf-zipmap-1st
   "
   Stateful transducer, which stores the first item as a list of a keys to apply (via `zipmap`) to the rest of the items in a collection. Serves to turn the Census API response into a more conventional JSON format.
   "
+  [rf]
   (let [prep (volatile! nil)]
     (fn
       ([] (rf))
@@ -375,10 +433,9 @@
            (rf result (zipmap prev (vec item)))))))))
 
 ;; If you want to pass an argument into your transducer, wrap it in another function, which takes the arg and returns a transducer containing it.
-(defn xf-geo+stat [vars#]
-  "
-  A function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform each item from the Census API response collection into a new map with a hierarchy that will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map.
-  "
+(defn xf-geo+stat
+  "A function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform each item from the Census API response collection into a new map with a hierarchy that will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map."
+  [vars#]
   (fn [rf]
     (fn
       ([] (rf))
@@ -396,9 +453,11 @@
 (defn get->put!->port
   [url port]
   (let [args {:response-format :json
-              :handler         #(put! port %)
+              :handler         (fn [r]
+                                 (put! port r))
+                                 ;(close! port))
               :error-handler   #(prn (str "ERROR: " %))
-              :keywords        true}]
+              :keywords?        true}]
        (do
          (GET url args)
          port)))
@@ -426,21 +485,15 @@
                     pprint)
 
 
-(defn xf-stats->map [vars#]
-  "
-  A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
+(defn xf-stats->map
+  "A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
+  [vars#]
   (fn [rf]
     (fn
       ([] (rf))
       ([result] (rf result))
       ([result item]
        (rf result (transduce (xf-1-stat->map vars#) conj item))))))
-
-(transduce (xf-stats->map 2) conj [["B01001_001E" "B01001_001M" "state" "county"]
-                                   ["55049" "-555555555" "01" "001"]
-                                   ["57704" "-555555555" "01" "009"]
-                                   ["10552" "-555555555" "01" "011"]
-                                   ["24013" "-555555555" "01" "133"]])
 
 (defn get->chanxf->stats
   "Composes a call and calls Census' Statistics API"
@@ -461,11 +514,11 @@
 ;; for all counties: "get->chanxf->stats: Elapsed ms= 6956"
 (get->chanxf->stats {:vintage "2016"
                      :sourcePath ["acs" "acs5"]
-                     :geoHierarchy {:county "*"}
+                     :geoHierarchy {:state "01" :county "*"}
                      :variables ["B01001_001E"]
                      :key stats-key}
                     pprint)
-;;=>
+;;=> returns reversed list of response
 ;({:01133 {:properties {:B01001_001E "24013", :state "01", :county "133"}}}
 ; {:01131 {:properties {:B01001_001E "11119", :state "01", :county "131"}}}
 ; {:01129 {:properties {:B01001_001E "16909", :state "01", :county "129"}}}
@@ -475,11 +528,11 @@
 ;; for all counties: "get->chan->xfstats: Elapsed ms= 6496"
 (get->chan->xfstats {:vintage "2016"
                      :sourcePath ["acs" "acs5"]
-                     :geoHierarchy {:county "*"}
+                     :geoHierarchy {:state "01" :county "*"}
                      :variables ["B01001_001E"]
                      :key stats-key}
                     pprint)
-;;=>
+;;=> returns a list preserving response order
 ;({:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
 ; {:01003{:properties {:B01001_001E "199510", :state "01", :county "003"}}}
 ; {:01005{:properties {:B01001_001E "26614", :state "01", :county "005"}}}
@@ -489,11 +542,11 @@
 ;; for all counties: "get-stats->put!: Elapsed ms= 7929"
 (get-stats->put! {:vintage "2016"
                   :sourcePath ["acs" "acs5"]
-                  :geoHierarchy {:county "*"}
+                  :geoHierarchy {:state "01":county "*"}
                   :variables ["B01001_001E"]
                   :key stats-key}
                  pprint)
-;;=>
+;;=> returns a vector preserving response order
 ;[{:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
 ; {:01003{:properties {:B01001_001E "199510", :state "01", :county "003"}}}
 ; {:01005{:properties {:B01001_001E "26614", :state "01", :county "005"}}}
@@ -504,6 +557,64 @@
 ; Stateful [transducers examples](http://exupero.org/hazard/post/signal-processing/)
 ; More [transducers](http://matthiasnehlsen.com/blog/2014/10/06/Building-Systems-in-Clojure-2/)
 ; And even [more](http://blog.eikeland.se/2014/08/14/transducers/)
+
+
+(defn xf-geo+feature
+  "A function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform each item withing a GeoJSON FeatureCollection into a new map with a hierarchy that will enable deep-merging of the stats with a stat map."
+  [rf]
+  (fn
+    ([] (rf))
+    ([result] (rf result))
+    ([result item]
+     (rf result {(keyword (get-in item [:properties :GEOID])) item}))))
+
+(transduce xf-geo+feature
+           conj
+           (get-in {:type "FeatureCollection",
+                    :features
+                    [{:type "Feature",
+                      :properties
+                      {:STATEFP "01",
+                       :LSAD "06",
+                       :COUNTYNS "00161528",
+                       :AFFGEOID "0500000US01005",
+                       :GEOID "01005",
+                       :AWATER 50864677,
+                       :COUNTYFP "005",
+                       :NAME "Barbour",
+                       :ALAND 2291820706},
+                      :geometry
+                      {:type "Polygon",
+                       :coordinates
+                       [[[-85.748032 31.619181]
+                         [-85.745435 31.618898]
+                         [-85.748032 31.619181]]]}},
+                      {:type "Feature",
+                       :properties
+                       {:STATEFP "01",
+                        :LSAD "06",
+                        :COUNTYNS "00161537",
+                        :AFFGEOID "0500000US01023",
+                        :GEOID "01023",
+                        :AWATER 19059247,
+                        :COUNTYFP "023",
+                        :NAME "Choctaw",
+                        :ALAND 2365954971},
+                       :geometry
+                       {:type "Polygon",
+                        :coordinates
+                        [[[-88.473227 31.893856]
+                          [-88.468879 31.930262]
+                          [-88.473227 31.893856]]]}}]} [:features]))
+
+(defn xf-features->map
+  "A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
+  [rf]
+  (fn
+    ([] (rf))
+    ([result] (rf result))
+    ([result item]
+     (rf result (transduce xf-geo+feature conj item)))))
 
 
 
@@ -563,12 +674,37 @@
 
 (merge-geo+stats stats-x geo-x)
 
+(let [part1 (partial merge-geo+stats)]
+  (pprint (apply (part1) stats-x geo-x)))
 
+
+(defn merge-xf->geo+stats
+  "transducer, which takes two collections and merges them together recursively based on common key/uid"
+  [stats-map geo-map]
+  (fn [rf]
+    (fn
+      ([] rf)
+      ([result] rf result)
+      ([result item]
+       (rf result (merge-geo+stats stats-map geo-map) conj item)))))
+
+(let [c1 (chan)])
 ; ===============================
 ; TODO: Merging Two Channels ::START
 ; ===============================
+(defn get-features->put!->port
+  [url port]
+  (let [args {:response-format :json
+              :handler         (fn [r]
+                                 (put! port (get r :features)))
+                                 ;(close! port))
+              :error-handler   #(prn (str "ERROR: " %))
+              :keywords?        true}]
+    (do
+      (GET url args)
+      port)))
 
-(defn merge-geo-stats
+(defn merge-geo-stats->map
   "
   Takes an arg map to configure a call the Census' statistics API as well as a matching GeoJSON file.
   The match is based on `vintage` and `geoHierarchy` of the arg map.
@@ -582,13 +718,25 @@
   [args]
   (let [stats-call (stats-url-builder args)
         vars# (count (get args :variables))
-        =features= (chan 1)
-        =stats= (chan 1 (xf-stats->map vars#) #(pprint "fail! " %))]
-    (go (get->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=))
-    (go (get->put!->port stats-call =stats=))))
+        =features= (chan 1 xf-features->map #(pprint "features fail! " %))
+        =stats= (chan 1 (xf-stats->map vars#) #(pprint "stats fail! " %))
+        =merged= (async/map merge-geo+stats [=stats= =features=])]
+    (go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=)
+        (pipeline-async 1 =merged= identity =features=))
+        ;(pprint (<! =features=)))
+    (go (get->put!->port stats-call =stats=)
+        (pipeline-async 1 =merged= identity =stats=))
+        ;(pprint (<! =stats=))
+    (go (pprint (<! =merged=)))))
+
+(merge-geo-stats->map {:vintage "2016"
+                       :sourcePath ["acs" "acs5"]
+                       :geoHierarchy {:state "01":county "*"}
+                       :variables ["B01001_001E"]
+                       :key stats-key})
 
 
-
+(source get)
 
 (go
   (->
