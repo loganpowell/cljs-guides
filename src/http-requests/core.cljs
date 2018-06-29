@@ -1,15 +1,15 @@
 (ns http.core
-  (:require  [cljs.core.async
-              :as async
-              :refer [chan put! take! >! <! pipe timeout close! alts! pipeline-async]]
-             [cljs.core.async :refer-macros [go go-loop alt!]]
-             [ajax.core :as http :refer [GET POST]]
-             [cognitect.transit :as t]
-             [oops.core :as obj]
-             [clojure.string :as s]
-             [cljs.pprint :refer [pprint]]
-             ["dotenv" :as env]
-             fs)
+  (:require [cljs.core.async
+             :as async
+             :refer [chan put! take! >! <! pipe timeout close! alts! pipeline-async]]
+            [cljs.core.async :refer-macros [go go-loop alt!]]
+            [ajax.core :as http :refer [GET POST]]
+            [cognitect.transit :as t]
+            [oops.core :as obj]
+            [clojure.string :as s]
+            [cljs.pprint :refer [pprint]]
+            ["dotenv" :as env]
+            fs)
   (:use [clojure.repl :only (source)]))
 
 ; For Intellij IDE:
@@ -44,7 +44,7 @@
 
 (GET
   "http://no-sushi-here"
-  {:handler #(prn %)
+  {:handler       #(prn %)
    :error-handler #(prn (str "bad sushi: " %))})
 ;;=> "bad sushi: {:status 0, :status-text \"Request failed.\", :failure :failed}"
 
@@ -56,10 +56,10 @@
 (defn get-sushi [format handler keywords?]
   (GET
     "http://api.sushicount.com/add-piece-of-sushi/0"
-    {:handler handler
-     :error-handler #(prn (str "bad sushi: " %))
+    {:handler         handler
+     :error-handler   #(prn (str "bad sushi: " %))
      :response-format format
-     :keywords? keywords?}))
+     :keywords?       keywords?}))
 
 ; The default settings of `cljs-ajax`s response format is `:json`. It's important to note that the `:keywords?` option only applies to `:response-format :json`, so we'll need to specify that if we're explicitly including the `:response-format`:
 
@@ -122,10 +122,10 @@
   (GET
     "https://search.ams.usda.gov/farmersmarkets/v1/data.svc/zipSearch"
     {:response-format format
-     :handler #(pprint %)
-     :keywords? keywords?
-     :error-handler #(prn (str "Error!: " %))
-     :params {:zip zipcode}}))
+     :handler         #(pprint %)
+     :keywords?       keywords?
+     :error-handler   #(prn (str "Error!: " %))
+     :params          {:zip zipcode}}))
 
 
 (get-markets :json 32514 true)
@@ -159,9 +159,9 @@
   [base-url keywords?]
   (let [=resp= (chan)
         args (merge
-               {:response-format  :json
-                :handler          #(put! =resp= %)
-                :error-handler    #(prn (str "ERROR: " %))}
+               {:response-format :json
+                :handler         #(put! =resp= %)
+                :error-handler   #(prn (str "ERROR: " %))}
                (when-let [keywords? {:keywords? keywords?}]
                  keywords?))]
     (do
@@ -214,18 +214,18 @@
     "?get=" (s/join "," variables)
     (if (= 1 (count geoHierarchy))
       (str "&for=" (vec-pair->str (first geoHierarchy)))
-      (str "&in=" (s/join "%20" (map #(vec-pair->str % ) (butlast geoHierarchy)))
+      (str "&in=" (s/join "%20" (map #(vec-pair->str %) (butlast geoHierarchy)))
            "&for=" (vec-pair->str (last geoHierarchy))))
     "&key=" key))
 
 (def stats-key (obj/oget (env/load) ["parsed" "Census_Key_Pro"]))
 
 ;; EXAMPLE:
-(stats-url-builder {:vintage "2016"
-                    :sourcePath ["acs" "acs5"]
+(stats-url-builder {:vintage      "2016"
+                    :sourcePath   ["acs" "acs5"]
                     :geoHierarchy {:state "01" :county "073" :tract "000100"}
-                    :variables ["B01001_001E" "B01001_001M"]
-                    :key stats-key}) ;; input your key
+                    :variables    ["B01001_001E" "B01001_001M"]
+                    :key          stats-key})               ;; input your key
 
 ;; Produces => "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:000100&key=6980d91653a1f78acd456d9187ed28e23ea5d4e3"
 
@@ -253,17 +253,17 @@
       (->
         (get-json->put! url true)
         (<!)
-        (zipmap-1st :keywords) ;; <<- See note on "threading" above
+        (zipmap-1st :keywords)                              ;; <<- See note on "threading" above
         (vec)
         (pprint)))))
 
 
 ; EXAMPLES:
-(get-stats {:vintage "2016"
-            :sourcePath ["acs" "acs5"]
+(get-stats {:vintage      "2016"
+            :sourcePath   ["acs" "acs5"]
             :geoHierarchy {:state "01" :county "073" :tract "000100"}
-            :variables ["B01001_001E" "B01001_001M"]
-            :key stats-key})
+            :variables    ["B01001_001E" "B01001_001M"]
+            :key          stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ; [{:B01001_001E "3111",
 ;   :B01001_001M "369",
@@ -271,22 +271,22 @@
 ;   :county "073",
 ;   :tract "000100"}]
 
-(get-stats {:vintage "2016"
-            :sourcePath ["acs" "acs5"]
+(get-stats {:vintage      "2016"
+            :sourcePath   ["acs" "acs5"]
             :geoHierarchy {:state "01" :county "*"}
-            :variables ["B01001_001E"]
-            :key stats-key})
+            :variables    ["B01001_001E"]
+            :key          stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ; [{:B01001_001E "55049", :state "01", :county "001"
 ;  {:B01001_001E "199510", :state "01", :county "003"}
 ;  {:B01001_001E "26614", :state "01", :county "005"}
 ; ...]
 
-(get-stats {:vintage "2016"
-            :sourcePath ["acs" "acs5"]
+(get-stats {:vintage      "2016"
+            :sourcePath   ["acs" "acs5"]
             :geoHierarchy {:state "01"}
-            :variables ["B01001_001E"]
-            :key stats-key})
+            :variables    ["B01001_001E"]
+            :key          stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ;[{:B01001_001E "4841164", :state "01"}]
 
@@ -334,27 +334,27 @@
 
 (features+geoids [{:type "Feature",
                    :properties
-                   {:STATEFP "01",
-                    :LSAD "06",
-                    :COUNTYNS "00161528",
-                    :AFFGEOID "0500000US01005",
-                    :GEOID "01005",
-                    :AWATER 50864677,
-                    :COUNTYFP "005",
-                    :NAME "Barbour",
-                    :ALAND 2291820706},
+                         {:STATEFP  "01",
+                          :LSAD     "06",
+                          :COUNTYNS "00161528",
+                          :AFFGEOID "0500000US01005",
+                          :GEOID    "01005",
+                          :AWATER   50864677,
+                          :COUNTYFP "005",
+                          :NAME     "Barbour",
+                          :ALAND    2291820706},
                    :geometry
-                   {:type "Polygon",
-                    :coordinates
-                    [[[-85.748032 31.619181]
-                      [-85.745435 31.618898]
-                      [-85.742651 31.621259]
-                      [-85.74174 31.619403]
-                      [-85.739813 31.62181]
-                      [-85.739921 31.623322]
-                      [-85.736932 31.623691]
-                      [-85.731172 31.62994]
-                      [-85.729832 31.632373]]]}}])
+                         {:type "Polygon",
+                          :coordinates
+                                [[[-85.748032 31.619181]
+                                  [-85.745435 31.618898]
+                                  [-85.742651 31.621259]
+                                  [-85.74174 31.619403]
+                                  [-85.739813 31.62181]
+                                  [-85.739921 31.623322]
+                                  [-85.736932 31.623691]
+                                  [-85.731172 31.62994]
+                                  [-85.729832 31.632373]]]}}])
 
 ;=>
 ;({:01005 {:type "Feature",
@@ -427,9 +427,8 @@
       ([result item]
        (let [prev @prep]
          (if (nil? prev)
-           (do
-             (vreset! prep (vec (map keyword item)))
-             nil)
+           (do (vreset! prep (vec (map keyword item)))
+               nil)
            (rf result (zipmap prev (vec item)))))))))
 
 ;; If you want to pass an argument into your transducer, wrap it in another function, which takes the arg and returns a transducer containing it.
@@ -455,12 +454,11 @@
   (let [args {:response-format :json
               :handler         (fn [r]
                                  (put! port r))
-                                 ;(close! port))
               :error-handler   #(prn (str "ERROR: " %))
-              :keywords?        true}]
-       (do
-         (GET url args)
-         port)))
+              :keywords?       true}]
+    (do
+      (GET url args)
+      port)))
 
 ;; When working with `core.async` it's important to understand what you expect the shape of your data flowing into your channels will look like. In the case below, a single request using `cljs-ajax` will return a list of results, so we deal with this list after it is retrieved rather than as part of the `chan` establishment. When we plan on using transducers as a way to treat a stream or flow of individual items as a collection **over time** via a channel, we can do so by adding such a transducer to the `chan` directly (e.g.: `let [port (chan 1 (xform-each-item))]`
 (source async/transduce)
@@ -477,13 +475,16 @@
         (cb (sequence (xf-1-stat->map vars) (<! port)))
         (js/console.log (str "get->chan->xfstats: Elapsed ms= " (- (js/Date.) time)))))))
 
-(get->chan->xfstats {:vintage "2016"
-                     :sourcePath ["acs" "acs5"]
+(get->chan->xfstats {:vintage      "2016"
+                     :sourcePath   ["acs" "acs5"]
                      :geoHierarchy {:county "*"}
-                     :variables ["B01001_001E"]
-                     :key stats-key}
+                     :variables    ["B01001_001E"]
+                     :key          stats-key}
                     pprint)
 
+; ===============================
+; TODO: FIX the `conj` out of this transducer
+; ===============================
 
 (defn xf-stats->map
   "A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
@@ -498,9 +499,9 @@
 (defn get->chanxf->stats
   "Composes a call and calls Census' Statistics API"
   [{:keys [variables] :as args} cb]
-  (let [url   (stats-url-builder args)
+  (let [url (stats-url-builder args)
         vars# (count variables)
-        =resp=  (chan 1 (xf-stats->map vars#) #(pprint "fail! " %))]
+        =resp= (chan 1 (xf-stats->map vars#) #(pprint "fail! " %))]
     (go
       (let [time (js/Date.)]
         (get->put!->port url =resp=)
@@ -512,11 +513,11 @@
 ; ===============================
 
 ;; for all counties: "get->chanxf->stats: Elapsed ms= 6956"
-(get->chanxf->stats {:vintage "2016"
-                     :sourcePath ["acs" "acs5"]
+(get->chanxf->stats {:vintage      "2016"
+                     :sourcePath   ["acs" "acs5"]
                      :geoHierarchy {:state "01" :county "*"}
-                     :variables ["B01001_001E"]
-                     :key stats-key}
+                     :variables    ["B01001_001E"]
+                     :key          stats-key}
                     pprint)
 ;;=> returns reversed list of response
 ;({:01133 {:properties {:B01001_001E "24013", :state "01", :county "133"}}}
@@ -526,11 +527,11 @@
 ; ...)
 
 ;; for all counties: "get->chan->xfstats: Elapsed ms= 6496"
-(get->chan->xfstats {:vintage "2016"
-                     :sourcePath ["acs" "acs5"]
+(get->chan->xfstats {:vintage      "2016"
+                     :sourcePath   ["acs" "acs5"]
                      :geoHierarchy {:state "01" :county "*"}
-                     :variables ["B01001_001E"]
-                     :key stats-key}
+                     :variables    ["B01001_001E"]
+                     :key          stats-key}
                     pprint)
 ;;=> returns a list preserving response order
 ;({:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
@@ -540,11 +541,11 @@
 ; ...)
 
 ;; for all counties: "get-stats->put!: Elapsed ms= 7929"
-(get-stats->put! {:vintage "2016"
-                  :sourcePath ["acs" "acs5"]
-                  :geoHierarchy {:state "01":county "*"}
-                  :variables ["B01001_001E"]
-                  :key stats-key}
+(get-stats->put! {:vintage      "2016"
+                  :sourcePath   ["acs" "acs5"]
+                  :geoHierarchy {:state "01" :county "*"}
+                  :variables    ["B01001_001E"]
+                  :key          stats-key}
                  pprint)
 ;;=> returns a vector preserving response order
 ;[{:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
@@ -572,40 +573,45 @@
            conj
            (get-in {:type "FeatureCollection",
                     :features
-                    [{:type "Feature",
-                      :properties
-                      {:STATEFP "01",
-                       :LSAD "06",
-                       :COUNTYNS "00161528",
-                       :AFFGEOID "0500000US01005",
-                       :GEOID "01005",
-                       :AWATER 50864677,
-                       :COUNTYFP "005",
-                       :NAME "Barbour",
-                       :ALAND 2291820706},
-                      :geometry
-                      {:type "Polygon",
-                       :coordinates
-                       [[[-85.748032 31.619181]
-                         [-85.745435 31.618898]
-                         [-85.748032 31.619181]]]}},
-                      {:type "Feature",
-                       :properties
-                       {:STATEFP "01",
-                        :LSAD "06",
-                        :COUNTYNS "00161537",
-                        :AFFGEOID "0500000US01023",
-                        :GEOID "01023",
-                        :AWATER 19059247,
-                        :COUNTYFP "023",
-                        :NAME "Choctaw",
-                        :ALAND 2365954971},
-                       :geometry
-                       {:type "Polygon",
-                        :coordinates
-                        [[[-88.473227 31.893856]
-                          [-88.468879 31.930262]
-                          [-88.473227 31.893856]]]}}]} [:features]))
+                          [{:type "Feature",
+                            :properties
+                                  {:STATEFP  "01",
+                                   :LSAD     "06",
+                                   :COUNTYNS "00161528",
+                                   :AFFGEOID "0500000US01005",
+                                   :GEOID    "01005",
+                                   :AWATER   50864677,
+                                   :COUNTYFP "005",
+                                   :NAME     "Barbour",
+                                   :ALAND    2291820706},
+                            :geometry
+                                  {:type "Polygon",
+                                   :coordinates
+                                         [[[-85.748032 31.619181]
+                                           [-85.745435 31.618898]
+                                           [-85.748032 31.619181]]]}},
+                           {:type "Feature",
+                            :properties
+                                  {:STATEFP  "01",
+                                   :LSAD     "06",
+                                   :COUNTYNS "00161537",
+                                   :AFFGEOID "0500000US01023",
+                                   :GEOID    "01023",
+                                   :AWATER   19059247,
+                                   :COUNTYFP "023",
+                                   :NAME     "Choctaw",
+                                   :ALAND    2365954971},
+                            :geometry
+                                  {:type "Polygon",
+                                   :coordinates
+                                         [[[-88.473227 31.893856]
+                                           [-88.468879 31.930262]
+                                           [-88.473227 31.893856]]]}}]} [:features]))
+
+
+; ===============================
+; TODO: FIX the `conj` out of this transducer
+; ===============================
 
 (defn xf-features->map
   "A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
@@ -630,65 +636,110 @@
       (reduce #(rec-merge %1 %2) v vs)
       v)))
 
-(defn merge-geo+stats
-  [stats-map geo-map]
-  (for [[_ maps] (group-by keys (concat stats-map geo-map))]
-    (apply deep-merge maps)))
+;Archive
+; (defn merge-geo+stats
+;  [stats-map geo-map]
+;  (for [[_ maps] (group-by keys (concat stats-map geo-map))]
+;    (apply deep-merge maps)))
 
 (def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
               {:01005 {:properties {:B01001_001E "26614"
-                                    :test1 "string"
-                                    :test2 91}}}])
+                                    :test1       "string"
+                                    :test2       91}}}])
 
 ; Transformed geojson map
-(def geo-x [{:01005 {:type "Feature",
-                     :properties {:STATEFP "01",
-                                  :LSAD "06",
+(def geo-x [{:01005 {:type       "Feature",
+                     :properties {:STATEFP  "01",
+                                  :LSAD     "06",
                                   :COUNTYNS "00161528",
                                   :AFFGEOID "0500000US01005",
-                                  :GEOID "01005",
-                                  :AWATER 50864677,
+                                  :GEOID    "01005",
+                                  :AWATER   50864677,
                                   :COUNTYFP "005",
-                                  :NAME "Barbour",
-                                  :ALAND 2291820706},
-                     :geometry {:type "Polygon",
-                                :coordinates
-                                      [[[-85.748032 31.619181
-                                         [-85.745435 31.618898]
-                                         [-85.742651 31.621259]]]]}}}
-            {:01003 {:type "Feature",
-                     :properties {:STATEFP "01",
-                                  :LSAD "06",
+                                  :NAME     "Barbour",
+                                  :ALAND    2291820706},
+                     :geometry   {:type "Polygon",
+                                  :coordinates
+                                  [[[-85.748032 31.619181]
+                                    [-85.745435 31.618898]
+                                    [-85.742651 31.621259]]]}}}
+            {:01003 {:type       "Feature",
+                     :properties {:STATEFP  "01",
+                                  :LSAD     "06",
                                   :COUNTYNS "00161528",
                                   :AFFGEOID "0500000US01005",
-                                  :GEOID "01003",
-                                  :AWATER 50864677,
+                                  :GEOID    "01003",
+                                  :AWATER   50864677,
                                   :COUNTYFP "005",
-                                  :NAME "Barbour",
-                                  :ALAND 2291820706},
-                     :geometry {:type "Polygon",
-                                :coordinates
-                                      [[[-85.748032 31.619181]
-                                        [-85.745435 31.618898]
-                                        [-85.742651 31.621259]]]}}}])
+                                  :NAME     "Barbour",
+                                  :ALAND    2291820706},
+                     :geometry   {:type "Polygon",
+                                  :coordinates
+                                  [[[-85.748032 31.619181]
+                                    [-85.745435 31.618898]
+                                    [-85.742651 31.621259]]]}}}])
+
+(defn merge-geo+stats
+  [stats-map geo-map]
+  (for [[k maps] (group-by keys (concat stats-map geo-map))]
+    (->> (apply deep-merge maps))))
+;(keep (fn [[k v]] (if-not (= nil (get-in v [:properties :GEOID]))  v nil))))))
 
 (merge-geo+stats stats-x geo-x)
 
-(let [part1 (partial merge-geo+stats)]
-  (pprint (apply (part1) stats-x geo-x)))
+
+;; map destructuring courtesy [Arthur Ulfeldt](https://stackoverflow.com/a/12505774)
+(defn merge-xfilter
+  [rf]
+  (fn
+    ([] (rf))
+    ([result] (rf result))
+    ([result item]
+     (let [[k v] (first item)]
+       (rf result (if (nil? (get-in v [:properties :GEOID]))
+                    nil
+                    v))))))
 
 
-(defn merge-xf->geo+stats
-  "transducer, which takes two collections and merges them together recursively based on common key/uid"
+(transduce merge-xfilter
+           conj
+           [{:01001 {:properties {:B01001_001E "55049"}}}
+            {:01005 {:properties {:STATEFP "01"
+                                  :LSAD "06"
+                                  :COUNTYNS "00161528"
+                                  :AFFGEOID "0500000US01005"
+                                  :GEOID "01005"
+                                  :AWATER 50864677
+                                  :B01001_001E "26614"
+                                  :test2 91
+                                  :COUNTYFP "005"
+                                  :test1 "string"
+                                  :NAME "Barbour"
+                                  :ALAND 2291820706}
+                     :type "Feature"
+                     :geometry {:type "Polygon"
+                                :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}
+            {:01003 {:type "Feature"
+                     :properties {:STATEFP "01"
+                                  :LSAD "06"
+                                  :COUNTYNS "00161528"
+                                  :AFFGEOID "0500000US01005"
+                                  :GEOID "01003"
+                                  :AWATER 50864677
+                                  :COUNTYFP "005"
+                                  :NAME "Barbour"
+                                  :ALAND 2291820706}
+                     :geometry {:type "Polygon"
+                                :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}])
+
+(defn merge-geo+stats2
   [stats-map geo-map]
-  (fn [rf]
-    (fn
-      ([] rf)
-      ([result] rf result)
-      ([result item]
-       (rf result (merge-geo+stats stats-map geo-map) conj item)))))
+  (for [[k maps] (group-by keys (concat stats-map geo-map))]
+    (->> (apply deep-merge maps)
+         (into [] (xf-merged-filter conj)))))
 
-(let [c1 (chan)])
+(merge-geo+stats2 stats-x geo-x)
+
 ; ===============================
 ; TODO: Merging Two Channels ::START
 ; ===============================
@@ -697,12 +748,13 @@
   (let [args {:response-format :json
               :handler         (fn [r]
                                  (put! port (get r :features)))
-                                 ;(close! port))
               :error-handler   #(prn (str "ERROR: " %))
-              :keywords?        true}]
+              :keywords?       true}]
     (do
       (GET url args)
       port)))
+
+
 
 (defn merge-geo-stats->map
   "
@@ -723,17 +775,16 @@
         =merged= (async/map merge-geo+stats [=stats= =features=])]
     (go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=)
         (pipeline-async 1 =merged= identity =features=))
-        ;(pprint (<! =features=)))
+    ;(pprint (<! =features=)))
     (go (get->put!->port stats-call =stats=)
-        (pipeline-async 1 =merged= identity =stats=))
-        ;(pprint (<! =stats=))
-    (go (pprint (<! =merged=)))))
+        (pipeline-async 1 =merged= identity =stats=)
+        (pprint (<! =merged=)))))
 
-(merge-geo-stats->map {:vintage "2016"
-                       :sourcePath ["acs" "acs5"]
-                       :geoHierarchy {:state "01":county "*"}
-                       :variables ["B01001_001E"]
-                       :key stats-key})
+(merge-geo-stats->map {:vintage      "2016"
+                       :sourcePath   ["acs" "acs5"]
+                       :geoHierarchy {:state "01" :county "*"}
+                       :variables    ["B01001_001E"]
+                       :key          stats-key})
 
 
 (source get)
@@ -761,24 +812,24 @@
 
 
 
-(merge-geo-stats {:vintage "2016"
-                  :sourcePath ["acs" "acs5"]
+(merge-geo-stats {:vintage      "2016"
+                  :sourcePath   ["acs" "acs5"]
                   :geoHierarchy {:state "01" :county "*"}
-                  :variables ["B01001_001E"]
-                  :key stats-key})
+                  :variables    ["B01001_001E"]
+                  :key          stats-key})
 
 (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
-(def example-args {:vintage "2016"
-                   :sourcePath ["acs" "acs5"]
+(def example-args {:vintage      "2016"
+                   :sourcePath   ["acs" "acs5"]
                    :geoHierarchy {:state "01" :county "*"}
-                   :variables ["B01001_001E" "2" "3"]
-                   :key stats-key})
+                   :variables    ["B01001_001E" "2" "3"]
+                   :key          stats-key})
 
-(deep-merge-geo-stats {:vintage "2016"
-                       :sourcePath ["acs" "acs5"]
+(deep-merge-geo-stats {:vintage      "2016"
+                       :sourcePath   ["acs" "acs5"]
                        :geoHierarchy {:state "01" :county "*"}
-                       :variables ["B01001_001E"]
-                       :key stats-key})
+                       :variables    ["B01001_001E"]
+                       :key          stats-key})
 
 
 
@@ -846,61 +897,61 @@
                  {:B01001_001E "57704", :state "01", :county "009"}
                  {:B01001_001E "10552", :state "01", :county "011"}])
 
-(def geojson-data {:type "FeatureCollection",
-                   :features [{:type "Feature",
-                               :properties {:STATEFP "01",
-                                            :LSAD "06",
+(def geojson-data {:type     "FeatureCollection",
+                   :features [{:type       "Feature",
+                               :properties {:STATEFP  "01",
+                                            :LSAD     "06",
                                             :COUNTYNS "00161528",
                                             :AFFGEOID "0500000US01005",
-                                            :GEOID "01005",
-                                            :AWATER 50864677,
+                                            :GEOID    "01005",
+                                            :AWATER   50864677,
                                             :COUNTYFP "005",
-                                            :NAME "Barbour",
-                                            :ALAND 2291820706},
-                               :geometry {:type "Polygon",
-                                          :coordinates
-                                                [[[-85.748032 31.619181]
-                                                  [-85.745435 31.618898]
-                                                  [-85.742651 31.621259]]]}}]})
+                                            :NAME     "Barbour",
+                                            :ALAND    2291820706},
+                               :geometry   {:type "Polygon",
+                                            :coordinates
+                                                  [[[-85.748032 31.619181]
+                                                    [-85.745435 31.618898]
+                                                    [-85.742651 31.621259]]]}}]})
 
 ;; Example
 ; Transformed stats map
 (def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
               {:01005 {:properties {:B01001_001E "26614"
-                                    :test1 "string"
-                                    :test2 91}}}])
+                                    :test1       "string"
+                                    :test2       91}}}])
 
 ; Transformed geojson map
-(def geo-x [{:01005 {:type "Feature",
-                     :properties {:STATEFP "01",
-                                  :LSAD "06",
+(def geo-x [{:01005 {:type       "Feature",
+                     :properties {:STATEFP  "01",
+                                  :LSAD     "06",
                                   :COUNTYNS "00161528",
                                   :AFFGEOID "0500000US01005",
-                                  :GEOID "01005",
-                                  :AWATER 50864677,
+                                  :GEOID    "01005",
+                                  :AWATER   50864677,
                                   :COUNTYFP "005",
-                                  :NAME "Barbour",
-                                  :ALAND 2291820706},
-                     :geometry {:type "Polygon",
-                                :coordinates
-                                      [[[-85.748032 31.619181
+                                  :NAME     "Barbour",
+                                  :ALAND    2291820706},
+                     :geometry   {:type "Polygon",
+                                  :coordinates
+                                        [[[-85.748032 31.619181
                                            [-85.745435 31.618898]
                                            [-85.742651 31.621259]]]]}}}
-            {:01003 {:type "Feature",
-                     :properties {:STATEFP "01",
-                                  :LSAD "06",
+            {:01003 {:type       "Feature",
+                     :properties {:STATEFP  "01",
+                                  :LSAD     "06",
                                   :COUNTYNS "00161528",
                                   :AFFGEOID "0500000US01005",
-                                  :GEOID "01003",
-                                  :AWATER 50864677,
+                                  :GEOID    "01003",
+                                  :AWATER   50864677,
                                   :COUNTYFP "005",
-                                  :NAME "Barbour",
-                                  :ALAND 2291820706},
-                     :geometry {:type "Polygon",
-                                :coordinates
-                                      [[[-85.748032 31.619181]
-                                        [-85.745435 31.618898]
-                                        [-85.742651 31.621259]]]}}}])
+                                  :NAME     "Barbour",
+                                  :ALAND    2291820706},
+                     :geometry   {:type "Polygon",
+                                  :coordinates
+                                        [[[-85.748032 31.619181]
+                                          [-85.745435 31.618898]
+                                          [-85.742651 31.621259]]]}}}])
 
 
 (merge-geo+stats stats-x geo-x)
