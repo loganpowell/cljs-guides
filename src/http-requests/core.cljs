@@ -660,9 +660,9 @@
                                   :ALAND    2291820706},
                      :geometry   {:type "Polygon",
                                   :coordinates
-                                  [[[-85.748032 31.619181]
-                                    [-85.745435 31.618898]
-                                    [-85.742651 31.621259]]]}}}
+                                        [[[-85.748032 31.619181]
+                                          [-85.745435 31.618898]
+                                          [-85.742651 31.621259]]]}}}
             {:01003 {:type       "Feature",
                      :properties {:STATEFP  "01",
                                   :LSAD     "06",
@@ -675,9 +675,9 @@
                                   :ALAND    2291820706},
                      :geometry   {:type "Polygon",
                                   :coordinates
-                                  [[[-85.748032 31.619181]
-                                    [-85.745435 31.618898]
-                                    [-85.742651 31.621259]]]}}}])
+                                        [[[-85.748032 31.619181]
+                                          [-85.745435 31.618898]
+                                          [-85.742651 31.621259]]]}}}])
 
 (defn merge-geo+stats
   [stats-map geo-map]
@@ -690,47 +690,55 @@
 
 ;; map destructuring courtesy [Arthur Ulfeldt](https://stackoverflow.com/a/12505774)
 (defn merge-xfilter
-  [rf]
-  (fn
-    ([] (rf))
-    ([result] (rf result))
-    ([result item]
-     (let [[k v] (first item)]
-       (rf result (if (nil? (get-in v [:properties :GEOID]))
-                    nil
-                    v))))))
+  "
+  Takes two keys that serve to filter a merged list of two maps,
+  which returns a list of only those maps which have both keys.
+  Each key identifies of the merged maps.
+  This ensures the returned list contains only the overlap
+  between the two, i.e., excluding non-merged maps.
+  "
+  [var1 var2]
+  (fn [rf]
+    (fn
+      ([] (rf))
+      ([result] (rf result))
+      ([result item]
+       (let [[k v] (first item)]
+         (if (or (nil? (get-in v [:properties var1]))
+                 (nil? (get-in v [:properties var2])))
+           (rf result)
+           (rf result v)))))))
 
-
-(transduce merge-xfilter
+(transduce (merge-xfilter :B01001_001E)
            conj
            [{:01001 {:properties {:B01001_001E "55049"}}}
-            {:01005 {:properties {:STATEFP "01"
-                                  :LSAD "06"
-                                  :COUNTYNS "00161528"
-                                  :AFFGEOID "0500000US01005"
-                                  :GEOID "01005"
-                                  :AWATER 50864677
+            {:01005 {:properties {:STATEFP     "01"
+                                  :LSAD        "06"
+                                  :COUNTYNS    "00161528"
+                                  :AFFGEOID    "0500000US01005"
+                                  :GEOID       "01005"
+                                  :AWATER      50864677
                                   :B01001_001E "26614"
-                                  :test2 91
-                                  :COUNTYFP "005"
-                                  :test1 "string"
-                                  :NAME "Barbour"
-                                  :ALAND 2291820706}
-                     :type "Feature"
-                     :geometry {:type "Polygon"
-                                :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}
-            {:01003 {:type "Feature"
-                     :properties {:STATEFP "01"
-                                  :LSAD "06"
+                                  :test2       91
+                                  :COUNTYFP    "005"
+                                  :test1       "string"
+                                  :NAME        "Barbour"
+                                  :ALAND       2291820706}
+                     :type       "Feature"
+                     :geometry   {:type        "Polygon"
+                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}
+            {:01003 {:type       "Feature"
+                     :properties {:STATEFP  "01"
+                                  :LSAD     "06"
                                   :COUNTYNS "00161528"
                                   :AFFGEOID "0500000US01005"
-                                  :GEOID "01003"
-                                  :AWATER 50864677
+                                  :GEOID    "01003"
+                                  :AWATER   50864677
                                   :COUNTYFP "005"
-                                  :NAME "Barbour"
-                                  :ALAND 2291820706}
-                     :geometry {:type "Polygon"
-                                :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}])
+                                  :NAME     "Barbour"
+                                  :ALAND    2291820706}
+                     :geometry   {:type        "Polygon"
+                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}])
 
 (defn merge-geo+stats2
   [stats-map geo-map]
