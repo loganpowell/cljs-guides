@@ -63,12 +63,19 @@
 
 ; The default settings of `cljs-ajax`s response format is `:json`. It's important to note that the `:keywords?` option only applies to `:response-format :json`, so we'll need to specify that if we're explicitly including the `:response-format`:
 
-(get-sushi :json #(prn %) false)
+(get-sushi :json prn false)
 ;;=> {"pieces_of_sushi" 1} ;; = same as default behavior in first example
 
 ; turn json into keywordized clojure map!
-(get-sushi :json #(prn %) true)
+(get-sushi :json prn true)
 ;;=> {:pieces_of_sushi 1}
+
+(defn json-transit [t]
+  (let [r (t/reader :transit)]
+    (t/read r t)))
+
+(->> (get-sushi :json prn true)
+     (clj->js))
 
 
 ;    d8                                    ,e,   d8)
@@ -135,7 +142,7 @@
 ;   {:id "1011160", :marketname "6.3 Santa Rosa Farmers Market"}
 ; ...]}
 
-(get-markets :json 32514 false)
+(get-markets :transit 32514 true)
 ;{"results"
 ; [{"id" "1007518", "marketname" "4.3 Pensacola Growers' Retail Farmers' Market"}
 ;  {"id" "1011160", "marketname" "6.3 Santa Rosa Farmers Market"}
@@ -651,8 +658,15 @@
     (->>
       (for [[_ pairs] (group-by keys (concat stats-map geo-map))]
         (apply deep-merge pairs))
-      (transduce (merge-xfilter var1 var2) conj))))
+      (transduce (merge-xfilter var1 var2) conj)
+      (clj->js)
+      (js/JSON.stringify))))
 
+; must use js/console.log to get non stringified json
+(get-sushi :transit #(->> (t->json-verbose %) (js/console.log)))
+;;=> {"pieces_of_sushi":1}
+
+()
 ; ===============================
 ; TODO: Merging Two Channels ::START
 ; ===============================
@@ -687,12 +701,13 @@
         =features= (chan 1 xf-features->map #(pprint "features fail! " %))
         =stats= (chan 1 (xf-stats->map vars#) #(pprint "stats fail! " %))
         =merged= (async/map (merge-geo+stats2 (keyword (first (get args :variables))) :GEOID) [=stats= =features=])]
-    (go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=)
+    ;(go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=))
+    (go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson" =features=)
         (pipeline-async 1 =merged= identity =features=))
     ;(pprint (<! =features=)))
     (go (get->put!->port stats-call =stats=)
         (pipeline-async 1 =merged= identity =stats=)
-        (pprint (<! =merged=))
+        (js/console.log (<! =merged=))
         (close! =features=)
         (close! =stats=))))
 
