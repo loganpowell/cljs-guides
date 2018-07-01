@@ -482,12 +482,12 @@
                      :key          stats-key}
                     pprint)
 
-; ===============================
-; TODO: FIX the `conj` out of this transducer
-; ===============================
+
 
 (defn xf-stats->map
-  "A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
+  "
+  A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer.
+  "
   [vars#]
   (fn [rf]
     (fn
@@ -569,52 +569,13 @@
     ([result item]
      (rf result {(keyword (get-in item [:properties :GEOID])) item}))))
 
-(transduce xf-geo+feature
-           conj
-           (get-in {:type "FeatureCollection",
-                    :features
-                          [{:type "Feature",
-                            :properties
-                                  {:STATEFP  "01",
-                                   :LSAD     "06",
-                                   :COUNTYNS "00161528",
-                                   :AFFGEOID "0500000US01005",
-                                   :GEOID    "01005",
-                                   :AWATER   50864677,
-                                   :COUNTYFP "005",
-                                   :NAME     "Barbour",
-                                   :ALAND    2291820706},
-                            :geometry
-                                  {:type "Polygon",
-                                   :coordinates
-                                         [[[-85.748032 31.619181]
-                                           [-85.745435 31.618898]
-                                           [-85.748032 31.619181]]]}},
-                           {:type "Feature",
-                            :properties
-                                  {:STATEFP  "01",
-                                   :LSAD     "06",
-                                   :COUNTYNS "00161537",
-                                   :AFFGEOID "0500000US01023",
-                                   :GEOID    "01023",
-                                   :AWATER   19059247,
-                                   :COUNTYFP "023",
-                                   :NAME     "Choctaw",
-                                   :ALAND    2365954971},
-                            :geometry
-                                  {:type "Polygon",
-                                   :coordinates
-                                         [[[-88.473227 31.893856]
-                                           [-88.468879 31.930262]
-                                           [-88.473227 31.893856]]]}}]} [:features]))
-
-
-; ===============================
-; TODO: FIX the `conj` out of this transducer
-; ===============================
-
 (defn xf-features->map
-  "A higher order transducer function, which returns a transducer after being passed an integer argument denoting the number of variables the user requested. The transducer is used to transform *the entire* Census API response collection into a new map, which will enable deep-merging of the stats with a GeoJSON `feature`s `:properties` map. Designed as a `core.async` channel transducer."
+  "
+  This is a transducer, which uses a transducer to operate over a list,
+  which is returned as a single response from an HTTP request.
+  This transducer is meant to be used in concert with a `core.async`
+  channel.
+  "
   [rf]
   (fn
     ([] (rf))
@@ -636,57 +597,13 @@
       (reduce #(rec-merge %1 %2) v vs)
       v)))
 
-;Archive
-; (defn merge-geo+stats
-;  [stats-map geo-map]
-;  (for [[_ maps] (group-by keys (concat stats-map geo-map))]
-;    (apply deep-merge maps)))
-
-(def stats-x [{:01001 {:properties {:B01001_001E "55049"}}}
-              {:01005 {:properties {:B01001_001E "26614"
-                                    :test1       "string"
-                                    :test2       91}}}])
-
-; Transformed geojson map
-(def geo-x [{:01005 {:type       "Feature",
-                     :properties {:STATEFP  "01",
-                                  :LSAD     "06",
-                                  :COUNTYNS "00161528",
-                                  :AFFGEOID "0500000US01005",
-                                  :GEOID    "01005",
-                                  :AWATER   50864677,
-                                  :COUNTYFP "005",
-                                  :NAME     "Barbour",
-                                  :ALAND    2291820706},
-                     :geometry   {:type "Polygon",
-                                  :coordinates
-                                        [[[-85.748032 31.619181]
-                                          [-85.745435 31.618898]
-                                          [-85.742651 31.621259]]]}}}
-            {:01003 {:type       "Feature",
-                     :properties {:STATEFP  "01",
-                                  :LSAD     "06",
-                                  :COUNTYNS "00161528",
-                                  :AFFGEOID "0500000US01005",
-                                  :GEOID    "01003",
-                                  :AWATER   50864677,
-                                  :COUNTYFP "005",
-                                  :NAME     "Barbour",
-                                  :ALAND    2291820706},
-                     :geometry   {:type "Polygon",
-                                  :coordinates
-                                        [[[-85.748032 31.619181]
-                                          [-85.745435 31.618898]
-                                          [-85.742651 31.621259]]]}}}])
-
-(defn merge-geo+stats
-  [stats-map geo-map]
-  (for [[k maps] (group-by keys (concat stats-map geo-map))]
-    (->> (apply deep-merge maps))))
-;(keep (fn [[k v]] (if-not (= nil (get-in v [:properties :GEOID]))  v nil))))))
-
-(merge-geo+stats stats-x geo-x)
-
+;; This could work, but in this form, not very well
+(comment
+  (defn merge-geo+stats
+    [stats-map geo-map]
+    (for [[k maps] (group-by keys (concat stats-map geo-map))]
+      (->> (apply deep-merge maps)
+           (keep (fn [[k v]] (if-not (= nil (get-in v [:properties :GEOID])) v nil)))))))
 
 ;; map destructuring courtesy [Arthur Ulfeldt](https://stackoverflow.com/a/12505774)
 (defn merge-xfilter
@@ -709,44 +626,32 @@
            (rf result)
            (rf result v)))))))
 
-(transduce (merge-xfilter :B01001_001E)
-           conj
-           [{:01001 {:properties {:B01001_001E "55049"}}}
-            {:01005 {:properties {:STATEFP     "01"
-                                  :LSAD        "06"
-                                  :COUNTYNS    "00161528"
-                                  :AFFGEOID    "0500000US01005"
-                                  :GEOID       "01005"
-                                  :AWATER      50864677
-                                  :B01001_001E "26614"
-                                  :test2       91
-                                  :COUNTYFP    "005"
-                                  :test1       "string"
-                                  :NAME        "Barbour"
-                                  :ALAND       2291820706}
-                     :type       "Feature"
-                     :geometry   {:type        "Polygon"
-                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}
-            {:01003 {:type       "Feature"
-                     :properties {:STATEFP  "01"
-                                  :LSAD     "06"
-                                  :COUNTYNS "00161528"
-                                  :AFFGEOID "0500000US01005"
-                                  :GEOID    "01003"
-                                  :AWATER   50864677
-                                  :COUNTYFP "005"
-                                  :NAME     "Barbour"
-                                  :ALAND    2291820706}
-                     :geometry   {:type        "Polygon"
-                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}])
+
+(defn merge-xfilter->maps
+  "
+  This is a function, which returns a transducer that
+  - itself - uses a transducer to operate over a list,
+  which is returned as a single response from an HTTP request.
+  This transducer is meant to be used in concert with a `core.async`
+  channel.
+  "
+  [var1 var2]
+  (partial transduce (merge-xfilter var1 var2) conj))
 
 (defn merge-geo+stats2
-  [stats-map geo-map]
-  (for [[k maps] (group-by keys (concat stats-map geo-map))]
-    (->> (apply deep-merge maps)
-         (into [] (xf-merged-filter conj)))))
-
-(merge-geo+stats2 stats-x geo-x)
+  "
+  Higher Order Function, which takes two vars and returns another
+  function, which does a collection-level transformation,
+  which takes two input map-collections, merges them and then
+  filters them to return only those map-items, which contain
+  an identifying key from each source map.
+  "
+  [var1 var2]
+  (fn [stats-map geo-map]
+    (->>
+      (for [[_ pairs] (group-by keys (concat stats-map geo-map))]
+        (apply deep-merge pairs))
+      (transduce (merge-xfilter var1 var2) conj))))
 
 ; ===============================
 ; TODO: Merging Two Channels ::START
@@ -762,6 +667,7 @@
       (GET url args)
       port)))
 
+(source async/map)
 
 
 (defn merge-geo-stats->map
@@ -780,13 +686,15 @@
         vars# (count (get args :variables))
         =features= (chan 1 xf-features->map #(pprint "features fail! " %))
         =stats= (chan 1 (xf-stats->map vars#) #(pprint "stats fail! " %))
-        =merged= (async/map merge-geo+stats [=stats= =features=])]
+        =merged= (async/map (merge-geo+stats2 (keyword (first (get args :variables))) :GEOID) [=stats= =features=])]
     (go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=)
         (pipeline-async 1 =merged= identity =features=))
     ;(pprint (<! =features=)))
     (go (get->put!->port stats-call =stats=)
         (pipeline-async 1 =merged= identity =stats=)
-        (pprint (<! =merged=)))))
+        (pprint (<! =merged=))
+        (close! =features=)
+        (close! =stats=))))
 
 (merge-geo-stats->map {:vintage      "2016"
                        :sourcePath   ["acs" "acs5"]
@@ -794,25 +702,6 @@
                        :variables    ["B01001_001E"]
                        :key          stats-key})
 
-
-(source get)
-
-(go
-  (->
-    (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
-    (<!)
-    (get-in [:features])
-    (pprint)))
-;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
-;{:type "FeatureCollection",
-; :features
-;  [{:type "Feature",
-;    :properties
-;     {:STATEFP "01",}
-;      :LSAD "06",
-;      :COUNTYNS "00161528",
-;      :AFFGEOID "0500000US01005",
-;      :GEOID "01005",
 
 ; ===============================
 ; TODO: Merging Two Channels :: END
@@ -962,7 +851,109 @@
                                           [-85.742651 31.621259]]]}}}])
 
 
-(merge-geo+stats stats-x geo-x)
+(transduce xf-geo+feature
+           conj
+           (get-in {:type "FeatureCollection",
+                    :features
+                          [{:type "Feature",
+                            :properties
+                                  {:STATEFP  "01",
+                                   :LSAD     "06",
+                                   :COUNTYNS "00161528",
+                                   :AFFGEOID "0500000US01005",
+                                   :GEOID    "01005",
+                                   :AWATER   50864677,
+                                   :COUNTYFP "005",
+                                   :NAME     "Barbour",
+                                   :ALAND    2291820706},
+                            :geometry
+                                  {:type "Polygon",
+                                   :coordinates
+                                         [[[-85.748032 31.619181]
+                                           [-85.745435 31.618898]
+                                           [-85.748032 31.619181]]]}},
+                           {:type "Feature",
+                            :properties
+                                  {:STATEFP  "01",
+                                   :LSAD     "06",
+                                   :COUNTYNS "00161537",
+                                   :AFFGEOID "0500000US01023",
+                                   :GEOID    "01023",
+                                   :AWATER   19059247,
+                                   :COUNTYFP "023",
+                                   :NAME     "Choctaw",
+                                   :ALAND    2365954971},
+                            :geometry
+                                  {:type "Polygon",
+                                   :coordinates
+                                         [[[-88.473227 31.893856]
+                                           [-88.468879 31.930262]
+                                           [-88.473227 31.893856]]]}}]} [:features]))
+
+((merge-xfilter->maps :GEOID :B01001_001E) [{:01001 {:properties {:B01001_001E "55049"}}}
+                                            {:01005 {:properties {:STATEFP     "01"
+                                                                  :LSAD        "06"
+                                                                  :COUNTYNS    "00161528"
+                                                                  :AFFGEOID    "0500000US01005"
+                                                                  :GEOID       "01005"
+                                                                  :AWATER      50864677
+                                                                  :B01001_001E "26614"
+                                                                  :test2       91
+                                                                  :COUNTYFP    "005"
+                                                                  :test1       "string"
+                                                                  :NAME        "Barbour"
+                                                                  :ALAND       2291820706}
+                                                     :type       "Feature"
+                                                     :geometry   {:type        "Polygon"
+                                                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}
+                                            {:01003 {:type       "Feature"
+                                                     :properties {:STATEFP  "01"
+                                                                  :LSAD     "06"
+                                                                  :COUNTYNS "00161528"
+                                                                  :AFFGEOID "0500000US01005"
+                                                                  :GEOID    "01003"
+                                                                  :AWATER   50864677
+                                                                  :COUNTYFP "005"
+                                                                  :NAME     "Barbour"
+                                                                  :ALAND    2291820706}
+                                                     :geometry   {:type        "Polygon"
+                                                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}])
+(transduce (merge-xfilter :GEOID :B01001_001E)
+           conj
+           [{:01001 {:properties {:B01001_001E "55049"}}}
+            {:01005 {:properties {:STATEFP     "01"
+                                  :LSAD        "06"
+                                  :COUNTYNS    "00161528"
+                                  :AFFGEOID    "0500000US01005"
+                                  :GEOID       "01005"
+                                  :AWATER      50864677
+                                  :B01001_001E "26614"
+                                  :test2       91
+                                  :COUNTYFP    "005"
+                                  :test1       "string"
+                                  :NAME        "Barbour"
+                                  :ALAND       2291820706}
+                     :type       "Feature"
+                     :geometry   {:type        "Polygon"
+                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}
+            {:01003 {:type       "Feature"
+                     :properties {:STATEFP  "01"
+                                  :LSAD     "06"
+                                  :COUNTYNS "00161528"
+                                  :AFFGEOID "0500000US01005"
+                                  :GEOID    "01003"
+                                  :AWATER   50864677
+                                  :COUNTYFP "005"
+                                  :NAME     "Barbour"
+                                  :ALAND    2291820706}
+                     :geometry   {:type        "Polygon"
+                                  :coordinates [[-85.748032 31.619181] [-85.745435 31.618898] [-85.742651 31.621259]]}}}])
+
+;Archive
+; (defn merge-geo+stats
+;  [stats-map geo-map]
+;  (for [[_ maps] (group-by keys (concat stats-map geo-map))]
+;    (apply deep-merge maps)))
 
 (transduce xf-zipmap-1st
            conj
@@ -998,3 +989,397 @@
 ;  {:01011 {:properties {:B01001_001E "10552", :B01001_001M "-555555555", :state "01", :county "011"}}}
 ;  {:01009 {:properties {:B01001_001E "57704", :B01001_001M "-555555555", :state "01", :county "009"}}}
 ;  {:01001 {:properties {:B01001_001E "55049", :B01001_001M "-555555555", :state "01", :county "001"}}}})
+(transduce (merge-xfilter :GEOID :B01001_001E)
+           conj
+           [{:01093 {:properties {:B01001_001E "30239", :state "01", :county "093"}}}
+            {:01133
+             {:properties {:B01001_001E "24013", :state "01", :county "133"}}}
+            {:01039
+             {:properties {:B01001_001E "37729", :state "01", :county "039"}}}
+            {:01067
+             {:properties {:B01001_001E "17187", :state "01", :county "067"}}}
+            {:01063
+             {:properties {:B01001_001E "8587", :state "01", :county "063"}}}
+            {:01035 {:properties {:STATEFP "01",
+                                  :LSAD        "06",
+                                  :COUNTYNS    "00161543",
+                                  :AFFGEOID    "0500000US01035",
+                                  :county      "035",
+                                  :state       "01",
+                                  :GEOID       "01035",
+                                  :AWATER      6643480,
+                                  :B01001_001E "12697",
+                                  :COUNTYFP    "035",
+                                  :NAME        "Conecuh",
+                                  :ALAND       2201896058},
+                     :type "Feature",
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                      [[[-87.427204 31.26436]
+                                        [-87.425511 31.268299]
+                                        [-87.4227 31.27356]
+                                        [-87.420876 31.276319]
+                                        [-87.018133 31.261272]
+                                        [-87.036472 31.261315]
+                                        [-87.110613 31.260935]
+                                        [-87.163618 31.260744]
+                                        [-87.225866 31.260639]
+                                        [-87.36528 31.260364]
+                                        [-87.365618 31.260576]
+                                        [-87.427455 31.260386]
+                                        [-87.427204 31.26436]]]}}}
+            {:01059
+             {:properties {:B01001_001E "31573", :state "01", :county "059"}}}
+            {:01097
+             {:properties {:B01001_001E "414291", :state "01", :county "097"}}}
+            {:01027
+             {:properties {:B01001_001E "13483", :state "01", :county "027"}}}
+            {:01055
+             {:properties {:B01001_001E "103363", :state "01", :county "055"}}}
+            {:01007
+             {:properties {:B01001_001E "22572", :state "01", :county "007"}}}
+            {:01117
+             {:properties {:B01001_001E "205951", :state "01", :county "117"}}}
+            {:01073
+             {:properties {:B01001_001E "659096", :state "01", :county "073"}}}
+            {:01071
+             {:properties {:B01001_001E "52608", :state "01", :county "071"}}}
+            {:01131
+             {:properties {:B01001_001E "11119", :state "01", :county "131"}}}
+            {:01095
+             {:properties {:B01001_001E "94534", :state "01", :county "095"}}}
+            {:01129
+             {:properties {:B01001_001E "16909", :state "01", :county "129"}}}
+            {:01083
+             {:properties {:B01001_001E "90257", :state "01", :county "083"}}}
+            {:01121
+             {:properties {:B01001_001E "81057", :state "01", :county "121"}}}
+            {:01013
+             {:properties {:B01001_001E "20280", :state "01", :county "013"}}}
+            {:01089
+             {:properties {:B01001_001E "349973", :state "01", :county "089"}}}
+            {:01103
+             {:properties {:B01001_001E "119555", :state "01", :county "103"}}}
+            {:01087
+             {:properties {:B01001_001E "19684", :state "01", :county "087"}}}
+            {:01029
+             {:properties {:B01001_001E "14991", :state "01", :county "029"}}}
+            {:01127
+             {:properties {:B01001_001E "65593", :state "01", :county "127"}}}
+            {:01041
+             {:properties {:B01001_001E "13896", :state "01", :county "041"}}}
+            {:01057
+             {:properties {:B01001_001E "16783", :state "01", :county "057"}}}
+            {:01001
+             {:properties {:B01001_001E "55049", :state "01", :county "001"}}}
+            {:01115
+             {:properties {:B01001_001E "86576", :state "01", :county "115"}}}
+            {:01015
+             {:properties {:B01001_001E "115883", :state "01", :county "015"}}}
+            {:01119
+             {:properties {:B01001_001E "13285", :state "01", :county "119"}}}
+            {:01045
+             {:properties {:B01001_001E "49607", :state "01", :county "045"}}}
+            {:01065 {:properties {:STATEFP "01",
+                                  :LSAD        "06",
+                                  :COUNTYNS    "00161558",
+                                  :AFFGEOID    "0500000US01065",
+                                  :county      "065",
+                                  :state       "01",
+                                  :GEOID       "01065",
+                                  :AWATER      32525874,
+                                  :B01001_001E "15159",
+                                  :COUNTYFP    "065",
+                                  :NAME        "Hale",
+                                  :ALAND       1667804583},
+                     :type "Feature",
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                      [[[-87.870464 32.762442]
+                                        [-87.868184 32.765737]
+                                        [-87.866533 32.769393]
+                                        [-87.860296 32.756722]
+                                        [-87.868841 32.76079]
+                                        [-87.870206 32.761434]
+                                        [-87.870464 32.762442]]]}}}
+            {:01033
+             {:properties {:B01001_001E "54377", :state "01", :county "033"}}}
+            {:01085
+             {:properties {:B01001_001E "10565", :state "01", :county "085"}}}
+            {:01021
+             {:properties {:B01001_001E "43817", :state "01", :county "021"}}}
+            {:01049
+             {:properties {:B01001_001E "70937", :state "01", :county "049"}}}
+            {:01005
+                   {:properties {:STATEFP "01",
+                                 :LSAD        "06",
+                                 :COUNTYNS    "00161528",
+                                 :AFFGEOID    "0500000US01005",
+                                 :county      "005",
+                                 :state       "01",
+                                 :GEOID       "01005",
+                                 :AWATER      50864677,
+                                 :B01001_001E "26614",
+                                 :COUNTYFP    "005",
+                                 :NAME        "Barbour",
+                                 :ALAND       2291820706},
+                    :type "Feature",
+                    :geometry {:type "Polygon",
+                               :coordinates
+                                     [[[-85.748032 31.619181]
+                                       [-85.745435 31.618898]
+                                       [-85.742651 31.621259]
+                                       [-85.730484 31.618241]
+                                       [-85.748251 31.618048]
+                                       [-85.748032 31.619181]]]}}}
+            {:01053
+             {:properties {:B01001_001E "37875", :state "01", :county "053"}}}
+            {:01031
+             {:properties {:B01001_001E "50991", :state "01", :county "031"}}}
+            {:01047
+             {:properties {:B01001_001E "41426", :state "01", :county "047"}}}
+            {:01023 {:properties {:STATEFP "01",
+                                  :LSAD        "06",
+                                  :COUNTYNS    "00161537",
+                                  :AFFGEOID    "0500000US01023",
+                                  :county      "023",
+                                  :state       "01",
+                                  :GEOID       "01023",
+                                  :AWATER      19059247,
+                                  :B01001_001E "13287",
+                                  :COUNTYFP    "023",
+                                  :NAME        "Choctaw",
+                                  :ALAND       2365954971},
+                     :type "Feature",
+                     :geometry {:type "Polygon",
+                                :coordinates
+                                      [[[-88.473227 31.893856]
+                                        [-88.468879 31.930262]
+                                        [-88.46887438438648 31.93032335183119]
+                                        [-88.472642 31.875153]
+                                        [-88.473227 31.893856]]]}}}
+            {:01123
+             {:properties {:B01001_001E "40958", :state "01", :county "123"}}}
+            {:01037
+             {:properties {:B01001_001E "10864", :state "01", :county "037"}}}
+            {:01051 {:properties {:STATEFP "01",
+                                  :LSAD        "06",
+                                  :COUNTYNS    "00161551",
+                                  :AFFGEOID    "0500000US01051",
+                                  :county      "051",
+                                  :state       "01",
+                                  :GEOID       "01051",
+                                  :AWATER      99850740,
+                                  :B01001_001E "80957",
+                                  :COUNTYFP    "051",
+                                  :NAME        "Elmore",
+                                  :ALAND       1601876535},
+                     :type "Feature",
+                     :geometry
+                           {:type "Polygon",
+                            :coordinates
+                                  [[[-86.413335 32.750591]
+                                    [-86.371151 32.750627]
+                                    [-86.371243 32.751148]
+                                    [-86.412826 32.635879]
+                                    [-86.412877 32.648913]
+                                    [-86.413116 32.707386]
+                                    [-86.413335 32.750591]]]}}}
+            {:01107
+             {:properties {:B01001_001E "20042", :state "01", :county "107"}}}
+            {:01101
+             {:properties {:B01001_001E "227392", :state "01", :county "101"}}}
+            {:01091
+             {:properties {:B01001_001E "20066", :state "01", :county "091"}}}
+            {:01113
+             {:properties {:B01001_001E "58636", :state "01", :county "113"}}}
+            {:01079
+             {:properties {:B01001_001E "33433", :state "01", :county "079"}}}
+            {:01011
+             {:properties {:B01001_001E "10552", :state "01", :county "011"}}}
+            {:01019
+             {:properties {:B01001_001E "25897", :state "01", :county "019"}}}
+            {:01025
+             {:properties {:B01001_001E "24847", :state "01", :county "025"}}}
+            {:01017
+             {:properties {:B01001_001E "34018", :state "01", :county "017"}}}
+            {:01075
+             {:properties {:B01001_001E "14066", :state "01", :county "075"}}}
+            {:01109 {:properties {:STATEFP "01",
+                                  :LSAD        "06",
+                                  :COUNTYNS    "00161581",
+                                  :AFFGEOID    "0500000US01109",
+                                  :county      "109",
+                                  :state       "01",
+                                  :GEOID       "01109",
+                                  :AWATER      2336975,
+                                  :B01001_001E "33277",
+                                  :COUNTYFP    "109",
+                                  :NAME        "Pike",
+                                  :ALAND       1740741211},
+                     :type "Feature",
+                     :geometry
+                           {:type "Polygon",
+                            :coordinates
+                                  [[[-86.199408 31.807861]
+                                    [-86.198085 31.80898]
+                                    [-86.195777 31.809347]
+                                    [-86.147342 31.776067]
+                                    [-86.148339 31.790951]
+                                    [-86.161221 31.790824]
+                                    [-86.199378 31.79045]
+                                    [-86.199408 31.807861]]]}}}
+            {:01111
+             {:properties {:B01001_001E "22615", :state "01", :county "111"}}}
+            {:01069
+             {:properties {:B01001_001E "103891", :state "01", :county "069"}}}
+            {:01077
+             {:properties {:B01001_001E "92641", :state "01", :county "077"}}}
+            {:01105
+             {:properties {:B01001_001E "9856", :state "01", :county "105"}}}
+            {:01099
+             {:properties {:B01001_001E "21975", :state "01", :county "099"}}}
+            {:01081
+             {:properties {:B01001_001E "153947", :state "01", :county "081"}}}
+            {:01003
+             {:properties {:B01001_001E "199510", :state "01", :county "003"}}}
+            {:01043
+             {:properties {:B01001_001E "81316", :state "01", :county "043"}}}
+            {:01125
+             {:properties {:B01001_001E "202471", :state "01", :county "125"}}}
+            {:01009
+             {:properties {:B01001_001E "57704", :state "01", :county "009"}}}
+            {:01061
+             {:properties {:B01001_001E "26765", :state "01", :county "061"}}}])
+
+(comment
+  [{:properties {:STATEFP "01",
+                 :LSAD "06",
+                 :COUNTYNS "00161543",
+                 :AFFGEOID "0500000US01035",
+                 :county "035",
+                 :state "01",
+                 :GEOID "01035",
+                 :AWATER 6643480,
+                 :B01001_001E "12697",
+                 :COUNTYFP "035",
+                 :NAME "Conecuh",
+                 :ALAND 2201896058},
+    :type "Feature",
+    :geometry {:type "Polygon",
+               :coordinates [[[-87.427204 31.26436]
+                              [-87.425511 31.268299]
+                              [-87.4227 31.27356]
+                              [-87.420876 31.276319]
+                              [-87.018133 31.261272]
+                              [-87.036472 31.261315]
+                              [-87.110613 31.260935]
+                              [-87.163618 31.260744]
+                              [-87.225866 31.260639]
+                              [-87.36528 31.260364]
+                              [-87.365618 31.260576]
+                              [-87.427455 31.260386]
+                              [-87.427204 31.26436]]]}}
+   {:properties {:STATEFP "01",
+                 :LSAD "06",
+                 :COUNTYNS "00161558",
+                 :AFFGEOID "0500000US01065",
+                 :county "065",
+                 :state "01",
+                 :GEOID "01065",
+                 :AWATER 32525874,
+                 :B01001_001E "15159",
+                 :COUNTYFP "065",
+                 :NAME "Hale",
+                 :ALAND 1667804583},
+    :type "Feature",
+    :geometry {:type "Polygon",
+               :coordinates [[[-87.870464 32.762442]
+                              [-87.868184 32.765737]
+                              [-87.866533 32.769393]
+                              [-87.860296 32.756722]
+                              [-87.868841 32.76079]
+                              [-87.870206 32.761434]
+                              [-87.870464 32.762442]]]}}
+   {:properties {:STATEFP "01",
+                 :LSAD "06",
+                 :COUNTYNS "00161528",
+                 :AFFGEOID "0500000US01005",
+                 :county "005",
+                 :state "01",
+                 :GEOID "01005",
+                 :AWATER 50864677,
+                 :B01001_001E "26614",
+                 :COUNTYFP "005",
+                 :NAME "Barbour",
+                 :ALAND 2291820706},
+    :type "Feature",
+    :geometry {:type "Polygon",
+               :coordinates [[[-85.748032 31.619181]
+                              [-85.745435 31.618898]
+                              [-85.742651 31.621259]
+                              [-85.730484 31.618241]
+                              [-85.748251 31.618048]
+                              [-85.748032 31.619181]]]}}
+   {:properties {:STATEFP "01",
+                 :LSAD "06",
+                 :COUNTYNS "00161537",
+                 :AFFGEOID "0500000US01023",
+                 :county "023",
+                 :state "01",
+                 :GEOID "01023",
+                 :AWATER 19059247,
+                 :B01001_001E "13287",
+                 :COUNTYFP "023",
+                 :NAME "Choctaw",
+                 :ALAND 2365954971},
+    :type "Feature",
+    :geometry {:type "Polygon",
+               :coordinates [[[-88.473227 31.893856]
+                              [-88.468879 31.930262]
+                              [-88.46887438438648 31.93032335183119]
+                              [-88.472642 31.875153]
+                              [-88.473227 31.893856]]]}}
+   {:properties {:STATEFP "01",
+                 :LSAD "06",
+                 :COUNTYNS "00161551",
+                 :AFFGEOID "0500000US01051",
+                 :county "051",
+                 :state "01",
+                 :GEOID "01051",
+                 :AWATER 99850740,
+                 :B01001_001E "80957",
+                 :COUNTYFP "051",
+                 :NAME "Elmore",
+                 :ALAND 1601876535},
+    :type "Feature",
+    :geometry {:type "Polygon",
+               :coordinates [[[-86.413335 32.750591]
+                              [-86.371151 32.750627]
+                              [-86.371243 32.751148]
+                              [-86.412826 32.635879]
+                              [-86.412877 32.648913]
+                              [-86.413116 32.707386]
+                              [-86.413335 32.750591]]]}}
+   {:properties {:STATEFP "01",
+                 :LSAD "06",
+                 :COUNTYNS "00161581",
+                 :AFFGEOID "0500000US01109",
+                 :county "109",
+                 :state "01",
+                 :GEOID "01109",
+                 :AWATER 2336975,
+                 :B01001_001E "33277",
+                 :COUNTYFP "109",
+                 :NAME "Pike",
+                 :ALAND 1740741211},
+    :type "Feature",
+    :geometry {:type "Polygon",
+               :coordinates [[[-86.199408 31.807861]
+                              [-86.198085 31.80898]
+                              [-86.195777 31.809347]
+                              [-86.147342 31.776067]
+                              [-86.148339 31.790951]
+                              [-86.161221 31.790824]
+                              [-86.199378 31.79045]
+                              [-86.199408 31.807861]]]}}])
