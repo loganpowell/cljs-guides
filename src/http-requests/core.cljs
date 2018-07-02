@@ -9,7 +9,7 @@
             [clojure.string :as s]
             [cljs.pprint :refer [pprint]]
             ["dotenv" :as env]
-            fs)
+            ["fs" :as fs])
   (:use [clojure.repl :only (source)]))
 
 ; For Intellij IDE:
@@ -645,6 +645,10 @@
   [var1 var2]
   (partial transduce (merge-xfilter var1 var2) conj))
 
+; ===============================
+; TODO: combine merge-xfilter clj->js and js/JSON.stringify into a single transducer (comp)
+; ===============================
+
 (defn merge-geo+stats2
   "
   Higher Order Function, which takes two vars and returns another
@@ -662,14 +666,7 @@
       (clj->js)
       (js/JSON.stringify))))
 
-; must use js/console.log to get non stringified json
-(get-sushi :transit #(->> (t->json-verbose %) (js/console.log)))
-;;=> {"pieces_of_sushi":1}
 
-()
-; ===============================
-; TODO: Merging Two Channels ::START
-; ===============================
 (defn get-features->put!->port
   [url port]
   (let [args {:response-format :json
@@ -707,13 +704,13 @@
     ;(pprint (<! =features=)))
     (go (get->put!->port stats-call =stats=)
         (pipeline-async 1 =merged= identity =stats=)
-        (js/console.log (<! =merged=))
+        (fs/writeFileSync "counties.json" (<! =merged=) (js/console.log "file saved"))
         (close! =features=)
         (close! =stats=))))
 
 (merge-geo-stats->map {:vintage      "2016"
                        :sourcePath   ["acs" "acs5"]
-                       :geoHierarchy {:state "01" :county "*"}
+                       :geoHierarchy {:county "*"}
                        :variables    ["B01001_001E"]
                        :key          stats-key})
 
