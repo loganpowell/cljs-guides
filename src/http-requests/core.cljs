@@ -208,22 +208,22 @@
 ; This section is not important to your understanding of either `core.async` or `cljs-ajax` and can be comfortably skipped. However, if you're target API does not conform to the `:vec-strategy` schemes, it might be handy for you to see some string manipulation techniques for putting together a URL.
 
 
-(defn vec-pair->str [pair]
+(defn kv-pair->str [pair]
   (subs (str (s/join ":" pair)) 1))
 
 (defn stats-url-builder
   "Composes a URL to call Census' statistics API"
-  [{:keys [vintage sourcePath geoHierarchy variables key]}]
+  [{:keys [vintage sourcePath geoHierarchy variables statsKey]}]
   (str
     "https://api.census.gov/data/"
     vintage
     "/" (s/join "/" sourcePath)
     "?get=" (s/join "," variables)
     (if (= 1 (count geoHierarchy))
-      (str "&for=" (vec-pair->str (first geoHierarchy)))
-      (str "&in=" (s/join "%20" (map #(vec-pair->str %) (butlast geoHierarchy)))
-           "&for=" (vec-pair->str (last geoHierarchy))))
-    "&key=" key))
+      (str "&for=" (kv-pair->str (first geoHierarchy)))
+      (str "&in=" (s/join "%20" (map #(kv-pair->str %) (butlast geoHierarchy)))
+           "&for=" (kv-pair->str (last geoHierarchy))))
+    "&key=" statsKey))
 
 (def stats-key (obj/oget (env/load) ["parsed" "Census_Key_Pro"]))
 
@@ -232,7 +232,7 @@
                     :sourcePath   ["acs" "acs5"]
                     :geoHierarchy {:state "01" :county "073" :tract "000100"}
                     :variables    ["B01001_001E" "B01001_001M"]
-                    :key          stats-key})               ;; input your key
+                    :statsKey     stats-key})               ;; input your key
 
 ;; Produces => "https://api.census.gov/data/2016/acs/acs5?get=B01001_001E,B01001_001M&in=state:01%20county:073&for=tract:000100&key=6980d91653a1f78acd456d9187ed28e23ea5d4e3"
 
@@ -270,7 +270,7 @@
             :sourcePath   ["acs" "acs5"]
             :geoHierarchy {:state "01" :county "073" :tract "000100"}
             :variables    ["B01001_001E" "B01001_001M"]
-            :key          stats-key})
+            :statsKey     stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ; [{:B01001_001E "3111",
 ;   :B01001_001M "369",
@@ -282,7 +282,7 @@
             :sourcePath   ["acs" "acs5"]
             :geoHierarchy {:state "01" :county "*"}
             :variables    ["B01001_001E"]
-            :key          stats-key})
+            :statsKey     stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ; [{:B01001_001E "55049", :state "01", :county "001"
 ;  {:B01001_001E "199510", :state "01", :county "003"}
@@ -293,7 +293,7 @@
             :sourcePath   ["acs" "acs5"]
             :geoHierarchy {:state "01"}
             :variables    ["B01001_001E"]
-            :key          stats-key})
+            :statsKey     stats-key})
 ;;=> #object[cljs.core.async.impl.channels.ManyToManyChannel]
 ;[{:B01001_001E "4841164", :state "01"}]
 
@@ -486,7 +486,7 @@
                      :sourcePath   ["acs" "acs5"]
                      :geoHierarchy {:county "*"}
                      :variables    ["B01001_001E"]
-                     :key          stats-key}
+                     :statsKey     stats-key}
                     pprint)
 
 
@@ -524,7 +524,7 @@
                      :sourcePath   ["acs" "acs5"]
                      :geoHierarchy {:state "01" :county "*"}
                      :variables    ["B01001_001E"]
-                     :key          stats-key}
+                     :statsKey     stats-key}
                     pprint)
 ;;=> returns reversed list of response
 ;({:01133 {:properties {:B01001_001E "24013", :state "01", :county "133"}}}
@@ -538,7 +538,7 @@
                      :sourcePath   ["acs" "acs5"]
                      :geoHierarchy {:state "01" :county "*"}
                      :variables    ["B01001_001E"]
-                     :key          stats-key}
+                     :statsKey     stats-key}
                     pprint)
 ;;=> returns a list preserving response order
 ;({:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
@@ -552,7 +552,7 @@
                   :sourcePath   ["acs" "acs5"]
                   :geoHierarchy {:state "01" :county "*"}
                   :variables    ["B01001_001E"]
-                  :key          stats-key}
+                  :statsKey     stats-key}
                  pprint)
 ;;=> returns a vector preserving response order
 ;[{:01001{:properties {:B01001_001E "55049", :state "01", :county "001"}}}
@@ -698,47 +698,48 @@
         =features= (chan 1 xf-features->map #(pprint "features fail! " %))
         =stats= (chan 1 (xf-stats->map vars#) #(pprint "stats fail! " %))
         =merged= (async/map (merge-geo+stats2 (keyword (first (get args :variables))) :GEOID) [=stats= =features=])]
-    ;(go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" =features=))
     (go (get-features->put!->port "https://raw.githubusercontent.com/loganpowell/geojson/master/src/archive/test.geojson" =features=)
         (pipeline-async 1 =merged= identity =features=))
-    ;(pprint (<! =features=)))
     (go (get->put!->port stats-call =stats=)
         (pipeline-async 1 =merged= identity =stats=)
-        (fs/writeFileSync "counties.json" (<! =merged=) (js/console.log "file saved"))
+        (fs/writeFileSync "./test/counties.json" (<! =merged=) (js/console.log "file saved"))
         (close! =features=)
         (close! =stats=))))
 
 (merge-geo-stats->map {:vintage      "2016"
                        :sourcePath   ["acs" "acs5"]
-                       :geoHierarchy {:county "*"}
+                       :geoHierarchy {:state "01"
+                                      :county "*"}
                        :variables    ["B01001_001E"]
-                       :key          stats-key})
+                       :statsKey     stats-key})
 
+(str 01)
 
 ; ===============================
 ; TODO: Merging Two Channels :: END
 ; ===============================
 
+; Geography explanations: https://tigerweb.geo.census.gov/tigerwebmain/TIGERweb_geography_details.html#BLOCK
 
 
 (merge-geo-stats {:vintage      "2016"
                   :sourcePath   ["acs" "acs5"]
                   :geoHierarchy {:state "01" :county "*"}
                   :variables    ["B01001_001E"]
-                  :key          stats-key})
+                  :statsKey     stats-key})
 
 (get-json->put! "https://raw.githubusercontent.com/loganpowell/geojson/master/src/data/smallGeo.json" true)
 (def example-args {:vintage      "2016"
                    :sourcePath   ["acs" "acs5"]
                    :geoHierarchy {:state "01" :county "*"}
                    :variables    ["B01001_001E" "2" "3"]
-                   :key          stats-key})
+                   :statsKey     stats-key})
 
 (deep-merge-geo-stats {:vintage      "2016"
                        :sourcePath   ["acs" "acs5"]
                        :geoHierarchy {:state "01" :county "*"}
                        :variables    ["B01001_001E"]
-                       :key          stats-key})
+                       :statsKey     stats-key})
 
 
 
