@@ -885,7 +885,7 @@ We used `timeout` above to terminate our process. It's important to note that wh
 
 But more importantly...
 
-# We just spun up three. independent. synchronous. processes.
+# We just spun up three. independent. asynchronous. processes.
 
 ##  Yeah, we just did that in three lines of code.
 
